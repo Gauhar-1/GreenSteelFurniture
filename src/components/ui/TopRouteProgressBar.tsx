@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useTransition } from "react";
+import React, { useEffect, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 
 export function TopRouteProgressBar() {
@@ -22,29 +22,46 @@ export function TopRouteProgressBar() {
 
   useEffect(() => {
     // Listen for custom trigger events from InteractiveLinkCard or TactileButton
+    const timers = new Set<ReturnType<typeof setTimeout>>();
+
+    const clearAllTimers = () => {
+      timers.forEach((t) => clearTimeout(t));
+      timers.clear();
+    };
+
     const handleStart = () => {
+      clearAllTimers();
       setIsVisible(true);
       setProgress(25);
-      const t1 = setTimeout(() => setProgress(65), 150);
-      const t2 = setTimeout(() => setProgress(85), 400);
-      return () => {
-        clearTimeout(t1);
-        clearTimeout(t2);
-      };
+      const t1 = setTimeout(() => {
+        setProgress(65);
+        timers.delete(t1);
+      }, 150);
+      timers.add(t1);
+
+      const t2 = setTimeout(() => {
+        setProgress(85);
+        timers.delete(t2);
+      }, 400);
+      timers.add(t2);
     };
 
     const handleStop = () => {
+      clearAllTimers();
       setProgress(100);
-      setTimeout(() => {
+      const t3 = setTimeout(() => {
         setIsVisible(false);
         setProgress(0);
+        timers.delete(t3);
       }, 250);
+      timers.add(t3);
     };
 
     window.addEventListener("route-transition-start", handleStart);
     window.addEventListener("route-transition-stop", handleStop);
 
     return () => {
+      clearAllTimers();
       window.removeEventListener("route-transition-start", handleStart);
       window.removeEventListener("route-transition-stop", handleStop);
     };

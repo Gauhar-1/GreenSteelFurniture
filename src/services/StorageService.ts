@@ -83,18 +83,21 @@ export class StorageService {
           // Export as webp (fallback to jpeg if webp unsupported)
           canvas.toBlob(
             (blob) => {
+              // Free up canvas GPU memory immediately
+              canvas.width = 0;
+              canvas.height = 0;
+
               if (!blob) {
                 reject(new Error("Image compression canvas blob generation failed."));
                 return;
               }
 
               const objectUrl = URL.createObjectURL(blob);
-              const dataUrl = canvas.toDataURL("image/webp", quality);
               const compressedSizeKb = Math.round(blob.size / 1024);
 
               resolve({
                 blob,
-                dataUrl,
+                dataUrl: objectUrl, // Return objectUrl instead of duplicate Base64 in memory
                 objectUrl,
                 originalSizeKb,
                 compressedSizeKb,
@@ -156,6 +159,7 @@ export class StorageService {
         });
 
       if (uploadError) {
+        URL.revokeObjectURL(objectUrl);
         console.error("[StorageService] Supabase upload failed:", uploadError.message);
         throw new Error(`Supabase Storage upload failed: ${uploadError.message}. Base64 fallback is disabled to prevent database bloat.`);
       }
@@ -164,6 +168,9 @@ export class StorageService {
         .from(this.BUCKET_NAME)
         .getPublicUrl(path);
 
+      // Revoke temporary blob object URL once stored on Supabase
+      URL.revokeObjectURL(objectUrl);
+
       return {
         publicUrl: urlData.publicUrl,
         path,
@@ -171,6 +178,7 @@ export class StorageService {
         sizeKb: compressedSizeKb,
       };
     } catch (err) {
+      URL.revokeObjectURL(objectUrl);
       console.error("[StorageService] Upload exception:", err);
       throw err instanceof Error ? err : new Error("Failed to upload media to Supabase Storage.");
     }
@@ -212,6 +220,7 @@ export class StorageService {
         });
 
       if (uploadError) {
+        URL.revokeObjectURL(objectUrl);
         console.error("[StorageService] Storefront upload failed:", uploadError.message);
         throw new Error(`Storefront storage upload failed: ${uploadError.message}. Base64 fallback is disabled to prevent database bloat.`);
       }
@@ -220,6 +229,9 @@ export class StorageService {
         .from(this.BUCKET_NAME)
         .getPublicUrl(path);
 
+      // Revoke temporary blob object URL once stored on Supabase
+      URL.revokeObjectURL(objectUrl);
+
       return {
         publicUrl: urlData.publicUrl,
         path,
@@ -227,6 +239,7 @@ export class StorageService {
         sizeKb: compressedSizeKb,
       };
     } catch (err) {
+      URL.revokeObjectURL(objectUrl);
       console.error("[StorageService] Storefront upload exception:", err);
       throw err instanceof Error ? err : new Error("Failed to upload storefront media to Supabase Storage.");
     }
@@ -269,6 +282,7 @@ export class StorageService {
         });
 
       if (uploadError) {
+        URL.revokeObjectURL(objectUrl);
         console.error("[StorageService] Review upload failed:", uploadError.message);
         throw new Error(`Review storage upload failed: ${uploadError.message}. Base64 fallback is disabled to prevent database bloat.`);
       }
@@ -277,6 +291,9 @@ export class StorageService {
         .from(this.BUCKET_NAME)
         .getPublicUrl(path);
 
+      // Revoke temporary blob object URL once stored on Supabase
+      URL.revokeObjectURL(objectUrl);
+
       return {
         publicUrl: urlData.publicUrl,
         path,
@@ -284,9 +301,18 @@ export class StorageService {
         sizeKb: compressedSizeKb,
       };
     } catch (err) {
+      URL.revokeObjectURL(objectUrl);
       console.error("[StorageService] Review upload exception:", err);
       throw err instanceof Error ? err : new Error("Failed to upload review media to Supabase Storage.");
     }
+  }
+
+  /**
+   * Uploads compressed category cover image:
+   * Path: storefront/categories/{timestamp}.webp
+   */
+  public static async uploadCategoryCover(file: File | Blob): Promise<UploadResult> {
+    return this.uploadStorefrontMedia(file, "categories");
   }
 
   /**

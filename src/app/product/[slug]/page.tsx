@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { ProductService } from "@/services/ProductService";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 interface ProductSlugPageProps {
   params: Promise<{
@@ -26,6 +26,22 @@ export async function generateMetadata({
   return {
     title: `${product.title_en} | Green Steel Furniture`,
     description: product.tagline,
+    openGraph: {
+      title: `${product.title_en} — Green Steel Furniture`,
+      description: product.tagline,
+      images: [
+        {
+          url: "/og-banner.png",
+          width: 1200,
+          height: 630,
+          alt: "Green Steel Furniture",
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      images: ["/og-banner.png"],
+    },
   };
 }
 

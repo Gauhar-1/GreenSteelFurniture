@@ -2,12 +2,29 @@ import type { Metadata } from "next";
 import { MasterCategoryEntry } from "@/components/category/MasterCategoryEntry";
 import { CategoryService } from "@/services/CategoryService";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 export const metadata: Metadata = {
   title: "Collections & Departments | Green Steel Furniture",
   description:
     "Explore pure steel furniture collections: Bedroom, Living, Dining, and Workspace. 100% rust-proof, precision powder-coated architectural steel.",
+  openGraph: {
+    title: "Collections & Departments | Green Steel Furniture",
+    description:
+      "Explore pure steel furniture collections: Bedroom, Living, Dining, and Workspace. 100% rust-proof, precision powder-coated architectural steel.",
+    images: [
+      {
+        url: "/og-banner.png",
+        width: 1200,
+        height: 630,
+        alt: "Green Steel Furniture",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    images: ["/og-banner.png"],
+  },
 };
 
 /**

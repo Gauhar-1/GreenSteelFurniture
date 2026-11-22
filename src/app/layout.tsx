@@ -44,12 +44,21 @@ export const metadata: Metadata = {
     siteName: "Green Steel Furniture",
     locale: "en_IN",
     type: "website",
+    images: [
+      {
+        url: "/og-banner.png",
+        width: 1200,
+        height: 630,
+        alt: "Green Steel Furniture",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "Green Steel Furniture — Pure Steel. Perfected for Home.",
     description:
       "Pure heavy-gauge steel architectural furniture engineered for generations. Handcrafted in Gorakhpur.",
+    images: ["/og-banner.png"],
   },
 };
 

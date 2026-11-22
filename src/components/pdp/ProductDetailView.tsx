@@ -9,7 +9,7 @@ import { StickyMobileActionBar } from "./StickyMobileActionBar";
 import { getCategoryTheme } from "@/lib/categoryThemes";
 import { useCart } from "@/context/CartContext";
 import { useSiteSettings } from "@/context/SiteSettingsContext";
-import { buildSingleProductWhatsAppUrl, buildProductUrl } from "@/lib/whatsapp";
+import { buildSingleProductWhatsAppUrl } from "@/lib/whatsapp";
 
 interface ProductDetailViewProps {
   product: ProductCatalogItem;

@@ -40,7 +40,7 @@ export interface CartContextValue {
   toggleCart: () => void;
 }
 
-const STORAGE_KEY = "green_steel_cart_v1";
+const STORAGE_KEY = "green_steel_cart_v2";
 
 const CartContext = createContext<CartContextValue | null>(null);
 

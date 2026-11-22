@@ -430,22 +430,35 @@ export async function reorderStorefrontSectionsAction(
 
     if (isSupabaseConfigured()) {
       const supabase = await createServerSupabaseClient();
-      for (const item of orders) {
-        const { data: existing } = await supabase
-          .from("storefront_sections")
-          .select("content")
-          .eq("section_key", item.sectionKey)
-          .single();
+      const keys = orders.map((o) => o.sectionKey);
 
-        const currentContent = (existing?.content as Record<string, unknown>) || {};
-        await supabase
-          .from("storefront_sections")
-          .update({
-            content: { ...currentContent, display_order: item.displayOrder },
-            updated_at: new Date().toISOString(),
-          })
-          .eq("section_key", item.sectionKey);
-      }
+      // Single round-trip batch fetch for all affected sections
+      const { data: existingList } = await supabase
+        .from("storefront_sections")
+        .select("section_key, content")
+        .in("section_key", keys);
+
+      const contentMap = new Map<string, Record<string, unknown>>(
+        (existingList || []).map((s) => [
+          s.section_key,
+          (s.content as Record<string, unknown>) || {},
+        ])
+      );
+
+      // Concurrent batch update execution
+      await Promise.all(
+        orders.map((item) => {
+          const currentContent = contentMap.get(item.sectionKey) || {};
+          return supabase
+            .from("storefront_sections")
+            .update({
+              content: { ...currentContent, display_order: item.displayOrder },
+              display_order: item.displayOrder,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("section_key", item.sectionKey);
+        })
+      );
     }
 
     revalidatePath("/", "layout");

@@ -6,7 +6,7 @@ import { CatalogGridSkeleton } from "@/components/catalog/CatalogGridSkeleton";
 import { CategoryService } from "@/services/CategoryService";
 import { ProductService } from "@/services/ProductService";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 interface CategorySlugPageProps {
   params: Promise<{
@@ -29,6 +29,22 @@ export async function generateMetadata({
   return {
     title: `${category.name} | Green Steel Furniture`,
     description: category.tagline,
+    openGraph: {
+      title: `${category.name} | Green Steel Furniture`,
+      description: category.tagline,
+      images: [
+        {
+          url: "/og-banner.png",
+          width: 1200,
+          height: 630,
+          alt: "Green Steel Furniture",
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      images: ["/og-banner.png"],
+    },
   };
 }
 

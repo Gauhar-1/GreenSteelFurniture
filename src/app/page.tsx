@@ -2,12 +2,29 @@ import type { Metadata } from "next";
 import { PageRenderer } from "@/components/PageRenderer";
 import { StorefrontService } from "@/services/StorefrontService";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 export const metadata: Metadata = {
   title: "Green Steel Furniture — Modern Showroom Collection",
   description:
     "Architectural steel furniture designed for refined contemporary interiors. Natural finishes, seamless craftsmanship, and timeless spaces.",
+  openGraph: {
+    title: "Green Steel Furniture — Pure Steel. Perfected for Home.",
+    description:
+      "Architectural steel furniture designed for refined contemporary interiors. Natural finishes, seamless craftsmanship, and timeless spaces.",
+    images: [
+      {
+        url: "/og-banner.png",
+        width: 1200,
+        height: 630,
+        alt: "Green Steel Furniture",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    images: ["/og-banner.png"],
+  },
 };
 
 /**

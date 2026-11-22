@@ -4,7 +4,7 @@ import { ProductDetailView } from "@/components/pdp/ProductDetailView";
 import { ProductService } from "@/services/ProductService";
 import { CategoryService } from "@/services/CategoryService";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 interface HierarchicalProductPageProps {
   params: Promise<{
@@ -39,11 +39,20 @@ export async function generateMetadata({
       description: dbProduct.tagline,
       type: "website",
       siteName: "Green Steel Furniture",
+      images: [
+        {
+          url: "/og-banner.png",
+          width: 1200,
+          height: 630,
+          alt: "Green Steel Furniture",
+        },
+      ],
     },
     twitter: {
       card: "summary_large_image",
       title: `${dbProduct.title_en} — Green Steel Furniture`,
       description: dbProduct.tagline,
+      images: ["/og-banner.png"],
     },
   };
 }

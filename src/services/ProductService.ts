@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { Product, ProductFinish, ProductSize } from "@/types/database";
 import { LocalDataStore } from "@/services/LocalDataStore";
@@ -117,11 +118,11 @@ export class ProductService {
   }
 
   /**
-   * Fetch single product with all relations by slug
+   * Fetch single product with all relations by slug (deduplicated per render via React cache)
    */
-  public static async getProductBySlug(slug: string): Promise<ProductCatalogItem | null> {
+  public static getProductBySlug = cache(async (slug: string): Promise<ProductCatalogItem | null> => {
     try {
-      if (!this.isConfigured()) {
+      if (!ProductService.isConfigured()) {
         return LocalDataStore.getProducts().find((p) => p.slug === slug) || null;
       }
 
@@ -144,72 +145,101 @@ export class ProductService {
     } catch {
       return null;
     }
+  });
+
+  /**
+   * Helper to map ProductCatalogItem[] to CategoryProduct[] for PLP views
+   */
+  private static mapToCategoryProducts(
+    products: ProductCatalogItem[],
+    categorySlug: string
+  ): import("@/types/category").CategoryProduct[] {
+    return products.map((p) => {
+      const firstFinish = p.finishes?.[0];
+      const lifestyle =
+        firstFinish?.media?.lifestyle ||
+        firstFinish?.media?.front ||
+        firstFinish?.media?.functional ||
+        firstFinish?.media?.macro ||
+        "/product-drawer-isolated.png";
+      const inside =
+        firstFinish?.media?.functional ||
+        firstFinish?.media?.inside ||
+        firstFinish?.media?.front ||
+        lifestyle;
+
+      const availableColors = p.finishes?.map((f) => f.hex_code).filter(Boolean) || ["#36454F"];
+
+      const finishesList = (p.finishes || []).map((f) => ({
+        id: f.id,
+        name: f.finish_name,
+        hex: f.hex_code,
+        imageUrl:
+          f.media?.lifestyle ||
+          f.media?.front ||
+          f.media?.functional ||
+          f.media?.macro ||
+          lifestyle,
+      }));
+
+      const minPrice =
+        p.sizes && p.sizes.length > 0
+          ? Math.min(...p.sizes.map((s) => Number(s.price)))
+          : Number(p.base_price);
+
+      return {
+        id: p.id,
+        slug: p.slug,
+        category_slug: categorySlug,
+        sub_category: p.sub_category_id || "all",
+        title: p.title_en,
+        price: minPrice,
+        mrp: Math.round(minPrice * 1.3),
+        lifestyle_image: lifestyle,
+        inside_image: inside,
+        available_colors: availableColors.length > 0 ? availableColors : ["#36454F"],
+        specs:
+          p.highlights && p.highlights.length > 0
+            ? p.highlights.join(" • ")
+            : `${p.tagline}`,
+        tagline: p.tagline || "",
+        size_count: p.sizes?.length || 1,
+        finishes: finishesList,
+      };
+    });
   }
 
   /**
-   * Fetch active products for a specific category slug, mapped cleanly to CategoryProduct
+   * Fetch active products for a specific category slug directly filtered in PostgreSQL
+   * Eliminates full-table fetch and JS memory overhead.
    */
   public static async getProductsByCategorySlug(categorySlug: string): Promise<import("@/types/category").CategoryProduct[]> {
     try {
-      const allProducts = await this.getProducts();
-      
-      const filtered = allProducts.filter((p) => {
-        return p.category?.slug === categorySlug;
-      });
+      if (!this.isConfigured()) {
+        const local = LocalDataStore.getProducts().filter((p) => p.category?.slug === categorySlug);
+        return this.mapToCategoryProducts(local, categorySlug);
+      }
 
-      return filtered.map((p) => {
-        const firstFinish = p.finishes?.[0];
-        const lifestyle =
-          firstFinish?.media?.lifestyle ||
-          firstFinish?.media?.front ||
-          firstFinish?.media?.functional ||
-          firstFinish?.media?.macro ||
-          "/product-drawer-isolated.png";
-        const inside =
-          firstFinish?.media?.functional ||
-          firstFinish?.media?.inside ||
-          firstFinish?.media?.front ||
-          lifestyle;
+      const supabase = getSupabaseServerClient();
+      const { data, error } = await supabase
+        .from("products")
+        .select(`
+          *,
+          category:categories!products_category_id_fkey!inner(id, name_en, slug, blueprint_type),
+          finishes:product_finishes(*),
+          sizes:product_sizes(*)
+        `)
+        .eq("is_active", true)
+        .eq("category.slug", categorySlug)
+        .order("created_at", { ascending: false });
 
-        const availableColors = p.finishes?.map((f) => f.hex_code).filter(Boolean) || ["#36454F"];
+      if (error) {
+        console.error("Supabase query error in getProductsByCategorySlug:", error.message);
+        const fallback = (await this.getProducts()).filter((p) => p.category?.slug === categorySlug);
+        return this.mapToCategoryProducts(fallback, categorySlug);
+      }
 
-        const finishesList = (p.finishes || []).map((f) => ({
-          id: f.id,
-          name: f.finish_name,
-          hex: f.hex_code,
-          imageUrl:
-            f.media?.lifestyle ||
-            f.media?.front ||
-            f.media?.functional ||
-            f.media?.macro ||
-            lifestyle,
-        }));
-
-        const minPrice =
-          p.sizes && p.sizes.length > 0
-            ? Math.min(...p.sizes.map((s) => Number(s.price)))
-            : Number(p.base_price);
-
-        return {
-          id: p.id,
-          slug: p.slug,
-          category_slug: categorySlug,
-          sub_category: p.sub_category_id || "all",
-          title: p.title_en,
-          price: minPrice,
-          mrp: Math.round(minPrice * 1.3),
-          lifestyle_image: lifestyle,
-          inside_image: inside,
-          available_colors: availableColors.length > 0 ? availableColors : ["#36454F"],
-          specs:
-            p.highlights && p.highlights.length > 0
-              ? p.highlights.join(" • ")
-              : `${p.tagline}`,
-          tagline: p.tagline || "",
-          size_count: p.sizes?.length || 1,
-          finishes: finishesList,
-        };
-      });
+      return this.mapToCategoryProducts((data as unknown as ProductCatalogItem[]) || [], categorySlug);
     } catch (err) {
       console.error("Error in getProductsByCategorySlug:", err);
       return [];
