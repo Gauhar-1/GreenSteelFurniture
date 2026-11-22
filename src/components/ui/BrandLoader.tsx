@@ -6,6 +6,11 @@ export interface BrandLoaderProps {
   className?: string;
   label?: string;
   showLabel?: boolean;
+  /**
+   * When true (default for fullscreen), renders as a fixed viewport overlay (z-[70])
+   * covering the header, footer, and entire screen for an uninterrupted brand transition.
+   */
+  overlay?: boolean;
 }
 
 /**
@@ -23,6 +28,7 @@ export interface BrandLoaderProps {
  *     • S4: Lower-right base bar
  * - Pure CSS GPU-composited animation (anti-flash 120ms delay, staggered facet assembly,
  *   breathing pulse, and diagonal clipped silver sheen sweep).
+ * - Fixed z-[70] viewport overlay above header & footer on public pages.
  * - Full reduced-motion accessibility support.
  */
 export function BrandLoader({
@@ -30,6 +36,7 @@ export function BrandLoader({
   className,
   label = "GREEN STEEL",
   showLabel = true,
+  overlay,
 }: BrandLoaderProps) {
   // Unique clip-path ID for the diagonal sheen sweep across the 7 facets
   const clipId = "gs-monogram-clip";
@@ -185,12 +192,17 @@ export function BrandLoader({
   }
 
   // 3. FULLSCREEN VARIANT: Luxury viewport-centered presentation
+  // When overlay is true (default for fullscreen), it renders fixed at z-[70] above both header (z-50) & footer.
+  const isOverlay = overlay ?? (variant === "fullscreen");
+
   return (
     <div
       role="status"
-      aria-label="Loading Green Steel Furniture..."
+      aria-label={`Loading ${label || "Green Steel Furniture"}...`}
       className={cn(
-        "min-h-[75dvh] w-full flex flex-col items-center justify-center bg-[#FAF8F5] px-4",
+        isOverlay
+          ? "fixed inset-0 z-[70] w-screen h-screen min-h-[100dvh] flex flex-col items-center justify-center bg-[#FAF8F5] px-4 overflow-hidden select-none"
+          : "min-h-[75dvh] w-full flex flex-col items-center justify-center bg-[#FAF8F5] px-4",
         className
       )}
     >
