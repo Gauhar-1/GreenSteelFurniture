@@ -8,6 +8,7 @@ import { CartProvider } from "@/context/CartContext";
 import { SiteSettingsProvider } from "@/context/SiteSettingsContext";
 import { CartDrawer } from "@/components/cart/CartDrawer";
 import { SiteSettingsService } from "@/services/SiteSettingsService";
+import { getSiteUrl } from "@/lib/siteUrl";
 import "./globals.css";
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -25,6 +26,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL(getSiteUrl()),
   title: "Green Steel Furniture — Modern Showroom Collection",
   description:
     "Architectural steel furniture designed for refined contemporary interiors. Natural finishes, seamless craftsmanship, and timeless spaces.",
@@ -33,6 +35,21 @@ export const metadata: Metadata = {
       { url: "/icon.png", sizes: "32x32", type: "image/png" },
       { url: "/favicon.ico", sizes: "32x32" },
     ],
+  },
+  openGraph: {
+    title: "Green Steel Furniture — Pure Steel. Perfected for Home.",
+    description:
+      "Pure heavy-gauge steel architectural furniture engineered for generations. Handcrafted in Gorakhpur with a 15-year warranty.",
+    url: getSiteUrl(),
+    siteName: "Green Steel Furniture",
+    locale: "en_IN",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Green Steel Furniture — Pure Steel. Perfected for Home.",
+    description:
+      "Pure heavy-gauge steel architectural furniture engineered for generations. Handcrafted in Gorakhpur.",
   },
 };
 

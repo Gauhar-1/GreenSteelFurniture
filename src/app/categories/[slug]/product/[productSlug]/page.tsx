@@ -11,6 +11,10 @@ interface HierarchicalProductPageProps {
     slug: string; // category slug, e.g. "bedroom"
     productSlug: string; // product slug, e.g. "the-vault-3-door-almirah"
   }>;
+  searchParams?: Promise<{
+    finish?: string;
+    size?: string;
+  }>;
 }
 
 export async function generateMetadata({
@@ -30,6 +34,17 @@ export async function generateMetadata({
   return {
     title: `${dbProduct.title_en} | ${categoryName} | Green Steel Furniture`,
     description: dbProduct.tagline,
+    openGraph: {
+      title: `${dbProduct.title_en} — Green Steel Furniture`,
+      description: dbProduct.tagline,
+      type: "website",
+      siteName: "Green Steel Furniture",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${dbProduct.title_en} — Green Steel Furniture`,
+      description: dbProduct.tagline,
+    },
   };
 }
 
@@ -46,8 +61,10 @@ export async function generateMetadata({
  */
 export default async function HierarchicalProductPage({
   params,
+  searchParams,
 }: HierarchicalProductPageProps) {
   const { slug: categorySlug, productSlug } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : {};
 
   // 1. Fetch real Supabase product and category
   const dbProduct = await ProductService.getProductBySlug(productSlug);
@@ -67,6 +84,8 @@ export default async function HierarchicalProductPage({
       categorySlug={categorySlug}
       categoryName={dbCategory?.name_en || dbProduct.category?.name_en}
       subCategoryName={subCategory?.name_en}
+      initialFinishId={resolvedSearchParams.finish}
+      initialSizeId={resolvedSearchParams.size}
     />
   );
 }

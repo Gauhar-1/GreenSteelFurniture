@@ -8,6 +8,7 @@ interface ProductSlugPageProps {
   params: Promise<{
     slug: string;
   }>;
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
 export async function generateMetadata({
@@ -37,8 +38,10 @@ export async function generateMetadata({
  */
 export default async function DirectProductSlugPage({
   params,
+  searchParams,
 }: ProductSlugPageProps) {
   const { slug } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : {};
 
   // Direct fetch from Supabase Service Layer
   const product = await ProductService.getProductBySlug(slug);
@@ -47,5 +50,11 @@ export default async function DirectProductSlugPage({
   }
 
   const categorySlug = product.category?.slug || "bedroom";
-  redirect(`/categories/${categorySlug}/product/${product.slug}`);
+  const paramsObj = new URLSearchParams();
+  for (const [key, val] of Object.entries(resolvedSearchParams)) {
+    if (typeof val === "string") paramsObj.set(key, val);
+    else if (Array.isArray(val) && val[0]) paramsObj.set(key, val[0]);
+  }
+  const qs = paramsObj.toString();
+  redirect(`/categories/${categorySlug}/product/${product.slug}${qs ? `?${qs}` : ""}`);
 }

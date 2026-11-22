@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import type { ProductCatalogItem } from "@/services/ProductService";
 import { VisualStage } from "./VisualStage";
@@ -9,12 +9,15 @@ import { StickyMobileActionBar } from "./StickyMobileActionBar";
 import { getCategoryTheme } from "@/lib/categoryThemes";
 import { useCart } from "@/context/CartContext";
 import { useSiteSettings } from "@/context/SiteSettingsContext";
+import { buildSingleProductWhatsAppUrl, buildProductUrl } from "@/lib/whatsapp";
 
 interface ProductDetailViewProps {
   product: ProductCatalogItem;
   categorySlug?: string;
   categoryName?: string;
   subCategoryName?: string;
+  initialFinishId?: string;
+  initialSizeId?: string;
 }
 
 /**
@@ -34,35 +37,71 @@ export function ProductDetailView({
   categorySlug = "bedroom",
   categoryName,
   subCategoryName,
+  initialFinishId,
+  initialSizeId,
 }: ProductDetailViewProps) {
-  // Safe defaults for finishes and sizes from live Supabase data
-  const defaultFinish =
-    product.finishes.find((f) => f.is_default) || product.finishes[0] || {
-      id: "def-finish",
-      finish_name: "Architectural Grey",
-      hex_code: "#36454F",
-      media: {
-        lifestyle: "/hero-bedroom.png",
-        front: "/product-drawer-isolated.png",
-        functional: "/inside-wardrobe-locker.png",
-        macro: "/hero-bedroom.png",
-      },
-    };
+  // Deep-link hydration: resolve finish and size matching initial URL params or defaults
+  const resolvedInitialFinish = useMemo(() => {
+    if (initialFinishId) {
+      const match = product.finishes.find(
+        (f) =>
+          f.id === initialFinishId ||
+          f.finish_name.toLowerCase() === initialFinishId.toLowerCase()
+      );
+      if (match) return match;
+    }
+    return (
+      product.finishes.find((f) => f.is_default) ||
+      product.finishes[0] || {
+        id: "def-finish",
+        finish_name: "Architectural Grey",
+        hex_code: "#36454F",
+        media: {
+          lifestyle: "/hero-bedroom.png",
+          front: "/product-drawer-isolated.png",
+          functional: "/inside-wardrobe-locker.png",
+          macro: "/hero-bedroom.png",
+        },
+      }
+    );
+  }, [initialFinishId, product.finishes]);
 
-  const defaultSize =
-    product.sizes.find((s) => s.is_default) || product.sizes[0] || {
-      id: "def-size",
-      size_label: "Standard Proportions",
-      price: product.base_price,
-      token_amount: 500,
-      delivery_days: 4,
-      stock_status: "IN_STOCK",
-      dimensions: { height: 78, width: 36, depth: 22, unit: "inches" as const },
-    };
+  const resolvedInitialSize = useMemo(() => {
+    if (initialSizeId) {
+      const match = product.sizes.find(
+        (s) =>
+          s.id === initialSizeId ||
+          s.size_label.toLowerCase() === initialSizeId.toLowerCase()
+      );
+      if (match) return match;
+    }
+    return (
+      product.sizes.find((s) => s.is_default) ||
+      product.sizes[0] || {
+        id: "def-size",
+        size_label: "Standard Proportions",
+        price: product.base_price,
+        token_amount: 500,
+        delivery_days: 4,
+        stock_status: "IN_STOCK",
+        dimensions: { height: 78, width: 36, depth: 22, unit: "inches" as const },
+      }
+    );
+  }, [initialSizeId, product.sizes, product.base_price]);
 
-  const [selectedFinish, setSelectedFinish] = useState(defaultFinish);
-  const [selectedSize, setSelectedSize] = useState(defaultSize);
+  const [selectedFinish, setSelectedFinish] = useState(resolvedInitialFinish);
+  const [selectedSize, setSelectedSize] = useState(resolvedInitialSize);
   const [isAdded, setIsAdded] = useState(false);
+
+  // Synchronize browser address bar with selected finish and size (shallow, zero reload)
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.history?.replaceState) {
+      const url = new URL(window.location.href);
+      url.searchParams.set("finish", selectedFinish.id);
+      url.searchParams.set("size", selectedSize.id);
+      window.history.replaceState(null, "", url.toString());
+    }
+  }, [selectedFinish.id, selectedSize.id]);
 
   const { addItem, openCart } = useCart();
 
@@ -73,13 +112,17 @@ export function ProductDetailView({
   const currentPrice = Number(selectedSize?.price || product.base_price);
 
   // Phone & WhatsApp Configuration with Admin Settings Fallback
-  const { businessPhone, whatsappUrl } = useSiteSettings();
+  const { whatsappPhone, businessPhone, settings } = useSiteSettings();
 
-  // WhatsApp Pre-filled URL
-  const waMessage = `Hello Green Steel Furniture, I'm interested in the ${product.title_en} in ${selectedFinish?.finish_name} finish, ${
-    selectedSize?.size_label
-  } size (₹${currentPrice.toLocaleString("en-IN")}). Could you please share more details?`;
-  const waUrl = whatsappUrl(waMessage);
+  // Branded WhatsApp Pre-filled URL with deep-link variant
+  const waUrl = buildSingleProductWhatsAppUrl({
+    phone: whatsappPhone,
+    product,
+    finish: selectedFinish,
+    size: selectedSize,
+    categorySlug,
+    brandName: settings?.brand_name || "Green Steel Furniture",
+  });
   const callUrl = `tel:${businessPhone.replace(/[^0-9+]/g, "")}`;
 
   const handleAddToCart = () => {

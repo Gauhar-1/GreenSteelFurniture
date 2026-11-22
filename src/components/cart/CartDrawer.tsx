@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { useSiteSettings } from "@/context/SiteSettingsContext";
+import { buildCartWhatsAppUrl } from "@/lib/whatsapp";
 import { TactileButton } from "@/components/ui/TactileButton";
 import { cn } from "@/lib/utils";
 
@@ -38,41 +39,17 @@ export function CartDrawer() {
   // Client-only optional metadata for WhatsApp message
   const [customerName, setCustomerName] = useState("");
   const [customerLocation, setCustomerLocation] = useState("");
-  const { businessPhone, whatsappUrl } = useSiteSettings();
-
-  // Generate numbered WhatsApp order message
-  const buildWhatsAppMessage = () => {
-    let msg = `*Namaste Green Steel Furniture!* 🪑\n`;
-    msg += `I would like to inquire about / place an order for the following architectural steel items:\n\n`;
-
-    items.forEach((item, index) => {
-      const lineSubtotal = item.unitPrice * item.quantity;
-      msg += `*${index + 1}. ${item.title}*\n`;
-      msg += `   • Finish: ${item.finishName}\n`;
-      msg += `   • Size: ${item.sizeLabel} (${item.dimensionsText})\n`;
-      msg += `   • Quantity: ${item.quantity}\n`;
-      msg += `   • Price: ₹${item.unitPrice.toLocaleString("en-IN")} each (Subtotal: ₹${lineSubtotal.toLocaleString("en-IN")})\n\n`;
-    });
-
-    msg += `--------------------------------\n`;
-    msg += `📦 *Total Items:* ${totalItems}\n`;
-    msg += `💰 *Estimated Total:* ₹${estimatedTotal.toLocaleString("en-IN")}\n\n`;
-
-    if (customerName.trim() || customerLocation.trim()) {
-      msg += `*Customer Details:*\n`;
-      if (customerName.trim()) msg += `• Name: ${customerName.trim()}\n`;
-      if (customerLocation.trim()) msg += `• Delivery City / Pincode: ${customerLocation.trim()}\n`;
-      msg += `\n`;
-    }
-
-    msg += `Please confirm model availability, delivery timeline, and invoice details. Thank you!`;
-    return msg;
-  };
+  const { whatsappPhone, businessPhone, settings } = useSiteSettings();
 
   const handleWhatsAppSend = () => {
     if (items.length === 0) return;
-    const msg = buildWhatsAppMessage();
-    const url = whatsappUrl(msg);
+    const url = buildCartWhatsAppUrl({
+      phone: whatsappPhone,
+      items,
+      customerName,
+      customerLocation,
+      brandName: settings?.brand_name || "Green Steel Furniture",
+    });
     window.open(url, "_blank");
   };
 
