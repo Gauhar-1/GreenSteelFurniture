@@ -53,12 +53,6 @@ export function AdminProductCard({ product, onDelete }: AdminProductCardProps) {
             {product.title_en}
           </h4>
 
-          {product.title_hi && (
-            <p className="text-[11px] text-[#71717A] truncate font-serif">
-              {product.title_hi}
-            </p>
-          )}
-
           <div className="text-xs font-bold text-[#18181B] mt-1 font-mono">
             ₹{Number(product.base_price).toLocaleString("en-IN")}
           </div>

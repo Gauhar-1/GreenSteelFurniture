@@ -1,4 +1,4 @@
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { createClient as getSupabaseBrowserClient } from "@/utils/supabase/client";
 
 export interface CompressionResult {
   blob: Blob;
@@ -133,10 +133,13 @@ export class StorageService {
     const cleanSlot = options.slotName.toLowerCase().replace(/[^a-z0-9-]/g, "-");
     const path = `products/${cleanProduct}/${cleanFinish}/${cleanSlot}.webp`;
 
-    // Graceful fallback to persistent base64 dataUrl if Supabase is unconfigured
+    // In unconfigured development mode, return temporary object URL (never base64)
     if (!this.isConfigured()) {
+      if (process.env.NODE_ENV === "production") {
+        throw new Error("Supabase Storage is unconfigured in production environment.");
+      }
       return {
-        publicUrl: dataUrl || objectUrl,
+        publicUrl: objectUrl || dataUrl,
         path,
         isFallback: true,
         sizeKb: compressedSizeKb,
@@ -153,13 +156,8 @@ export class StorageService {
         });
 
       if (uploadError) {
-        console.warn("Supabase Storage upload warning, falling back to local preview:", uploadError.message);
-        return {
-          publicUrl: dataUrl || objectUrl,
-          path,
-          isFallback: true,
-          sizeKb: compressedSizeKb,
-        };
+        console.error("[StorageService] Supabase upload failed:", uploadError.message);
+        throw new Error(`Supabase Storage upload failed: ${uploadError.message}. Base64 fallback is disabled to prevent database bloat.`);
       }
 
       const { data: urlData } = supabase.storage
@@ -173,13 +171,8 @@ export class StorageService {
         sizeKb: compressedSizeKb,
       };
     } catch (err) {
-      console.warn("Storage upload exception, using local preview:", err);
-      return {
-        publicUrl: dataUrl || objectUrl,
-        path,
-        isFallback: true,
-        sizeKb: compressedSizeKb,
-      };
+      console.error("[StorageService] Upload exception:", err);
+      throw err instanceof Error ? err : new Error("Failed to upload media to Supabase Storage.");
     }
   }
 
@@ -198,8 +191,11 @@ export class StorageService {
     const path = `storefront/${cleanSection}/${timestamp}.webp`;
 
     if (!this.isConfigured()) {
+      if (process.env.NODE_ENV === "production") {
+        throw new Error("Supabase Storage is unconfigured in production environment.");
+      }
       return {
-        publicUrl: dataUrl || objectUrl,
+        publicUrl: objectUrl || dataUrl,
         path,
         isFallback: true,
         sizeKb: compressedSizeKb,
@@ -208,20 +204,16 @@ export class StorageService {
 
     try {
       const supabase = getSupabaseBrowserClient();
-      const { error } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from(this.BUCKET_NAME)
         .upload(path, blob, {
           contentType: "image/webp",
           upsert: true,
         });
 
-      if (error) {
-        return {
-          publicUrl: dataUrl || objectUrl,
-          path,
-          isFallback: true,
-          sizeKb: compressedSizeKb,
-        };
+      if (uploadError) {
+        console.error("[StorageService] Storefront upload failed:", uploadError.message);
+        throw new Error(`Storefront storage upload failed: ${uploadError.message}. Base64 fallback is disabled to prevent database bloat.`);
       }
 
       const { data: urlData } = supabase.storage
@@ -234,13 +226,66 @@ export class StorageService {
         isFallback: false,
         sizeKb: compressedSizeKb,
       };
-    } catch {
+    } catch (err) {
+      console.error("[StorageService] Storefront upload exception:", err);
+      throw err instanceof Error ? err : new Error("Failed to upload storefront media to Supabase Storage.");
+    }
+  }
+
+  /**
+   * Uploads compressed review / portfolio media:
+   * Path: reviews/{clientType}/{timestamp}.webp
+   */
+  public static async uploadReviewMedia(
+    file: File | Blob,
+    clientType: string = "general"
+  ): Promise<UploadResult> {
+    const { blob, dataUrl, objectUrl, compressedSizeKb } = await this.compressImage(file);
+
+    const cleanType = clientType.toLowerCase().replace(/[^a-z0-9_-]/g, "_");
+    const timestamp = Date.now();
+    const randomSuffix = Math.random().toString(36).substring(2, 7);
+    const path = `reviews/${cleanType}/${timestamp}_${randomSuffix}.webp`;
+
+    if (!this.isConfigured()) {
+      if (process.env.NODE_ENV === "production") {
+        throw new Error("Supabase Storage is unconfigured in production environment.");
+      }
       return {
-        publicUrl: dataUrl || objectUrl,
+        publicUrl: objectUrl || dataUrl,
         path,
         isFallback: true,
         sizeKb: compressedSizeKb,
       };
+    }
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { error: uploadError } = await supabase.storage
+        .from(this.BUCKET_NAME)
+        .upload(path, blob, {
+          contentType: "image/webp",
+          upsert: true,
+        });
+
+      if (uploadError) {
+        console.error("[StorageService] Review upload failed:", uploadError.message);
+        throw new Error(`Review storage upload failed: ${uploadError.message}. Base64 fallback is disabled to prevent database bloat.`);
+      }
+
+      const { data: urlData } = supabase.storage
+        .from(this.BUCKET_NAME)
+        .getPublicUrl(path);
+
+      return {
+        publicUrl: urlData.publicUrl,
+        path,
+        isFallback: false,
+        sizeKb: compressedSizeKb,
+      };
+    } catch (err) {
+      console.error("[StorageService] Review upload exception:", err);
+      throw err instanceof Error ? err : new Error("Failed to upload review media to Supabase Storage.");
     }
   }
 

@@ -229,7 +229,6 @@ export function CompleteTheLookEditor({
         "complete_the_look",
         data as unknown as Record<string, unknown>,
         "Complete the Look",
-        "कमप्लीट द लुक",
         isActive,
         displayOrder
       );

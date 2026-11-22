@@ -15,7 +15,7 @@ interface MasterCategoryEntryProps {
  * - Desktop: 2x2 Architectural Bento Grid fitted inside viewport (`calc(100vh - 5rem)`)
  * - Mobile: Vertical stack where each card is `h-[28dvh]`
  * - Zero Dead-Clicks: Wrapped in InteractiveLinkCard with instant scale & loading feedback
- * - Bilingual Typography: Renders English (name_en) & Hindi (name_hi) with tagline & item count
+ * - Typographic Hierarchy: Renders title with tagline & item count
  */
 export function MasterCategoryEntry({
   categories,
@@ -77,16 +77,11 @@ export function MasterCategoryEntry({
 
           {/* Bottom Typographic Content */}
           <div className="absolute bottom-3.5 left-3.5 right-3.5 sm:bottom-5 sm:left-5 sm:right-5 z-10 flex flex-col gap-1 sm:gap-1.5">
-            {/* Bilingual Title */}
+            {/* Title */}
             <div className="flex items-baseline gap-2 flex-wrap">
               <h2 className="text-xl sm:text-2xl lg:text-3xl font-serif text-white tracking-tight leading-tight">
                 {category.name}
               </h2>
-              {category.name_hi && (
-                <span className="text-xs sm:text-sm font-sans text-amber-200/90 font-medium">
-                  {category.name_hi}
-                </span>
-              )}
             </div>
 
             {/* Subtitle / Tagline */}

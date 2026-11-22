@@ -10,17 +10,30 @@ import {
 } from "@/types/auth";
 
 /**
+ * Sanitizes redirect URLs to prevent open redirect vulnerabilities.
+ * Ensures the destination is a relative path starting with '/' and not a scheme or protocol-relative URL.
+ */
+function sanitizeRedirectUrl(url?: string): string {
+  if (!url || typeof url !== "string") return "/admin";
+  const trimmed = url.trim();
+  if (trimmed.startsWith("/") && !trimmed.startsWith("//") && !trimmed.includes("://") && !trimmed.includes("\\")) {
+    return trimmed;
+  }
+  return "/admin";
+}
+
+/**
  * Checks if active session belongs to an authorized administrator
  */
 export async function verifyAdminSession(): Promise<{ authorized: boolean; userId?: string }> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   // If unconfigured in local development mode, allow action to proceed
-  if (!url || url.includes("placeholder-project")) {
+  if (process.env.NODE_ENV === "development" && (!url || url.includes("placeholder-project"))) {
     return { authorized: true };
   }
 
-  // Allow test automation in non-production
-  if (process.env.NODE_ENV !== "production") {
+  // Allow test automation strictly in development
+  if (process.env.NODE_ENV === "development") {
     try {
       const { cookies } = await import("next/headers");
       const cookieStore = await cookies();
@@ -95,14 +108,15 @@ export async function loginAdmin(
     }
 
     const { email, password, redirectTo } = validation.data;
+    const safeRedirect = sanitizeRedirectUrl(redirectTo);
 
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    if (!url || url.includes("placeholder-project")) {
+    if (process.env.NODE_ENV === "development" && (!url || url.includes("placeholder-project"))) {
       // Local development fallback
       return {
         success: true,
         message: "Development login successful.",
-        data: { redirectTo: redirectTo || "/admin" },
+        data: { redirectTo: safeRedirect },
       };
     }
 
@@ -166,7 +180,7 @@ export async function loginAdmin(
     return {
       success: true,
       message: "Authentication successful.",
-      data: { redirectTo: redirectTo || "/admin" },
+      data: { redirectTo: safeRedirect },
     };
   } catch (err) {
     return {

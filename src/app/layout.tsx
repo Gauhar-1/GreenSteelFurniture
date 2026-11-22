@@ -4,6 +4,10 @@ import { PremiumHeader } from "@/components/PremiumHeader";
 import { PremiumFooter } from "@/components/PremiumFooter";
 import { Suspense } from "react";
 import { TopRouteProgressBar } from "@/components/ui/TopRouteProgressBar";
+import { CartProvider } from "@/context/CartContext";
+import { SiteSettingsProvider } from "@/context/SiteSettingsContext";
+import { CartDrawer } from "@/components/cart/CartDrawer";
+import { SiteSettingsService } from "@/services/SiteSettingsService";
 import "./globals.css";
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -24,22 +28,35 @@ export const metadata: Metadata = {
   title: "Green Steel Furniture — Modern Showroom Collection",
   description:
     "Architectural steel furniture designed for refined contemporary interiors. Natural finishes, seamless craftsmanship, and timeless spaces.",
+  icons: {
+    icon: [
+      { url: "/icon.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon.ico", sizes: "32x32" },
+    ],
+  },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const settings = await SiteSettingsService.getSiteSettings();
+
   return (
     <html lang="en" className={plusJakarta.variable}>
       <body className="min-h-screen bg-[#FAF8F5] text-[#18181B] antialiased font-sans selection:bg-[#18181B] selection:text-[#FAF8F5] flex flex-col justify-between">
-        <Suspense fallback={null}>
-          <TopRouteProgressBar />
-        </Suspense>
-        <PremiumHeader />
-        <div className="flex-grow w-full">{children}</div>
-        <PremiumFooter />
+        <SiteSettingsProvider settings={settings}>
+          <CartProvider>
+            <Suspense fallback={null}>
+              <TopRouteProgressBar />
+            </Suspense>
+            <PremiumHeader />
+            <div className="flex-grow w-full">{children}</div>
+            <PremiumFooter settings={settings} />
+            <CartDrawer />
+          </CartProvider>
+        </SiteSettingsProvider>
       </body>
     </html>
   );

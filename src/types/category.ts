@@ -16,7 +16,6 @@ export type SubCategory = z.infer<typeof SubCategorySchema>;
 export const MasterCategorySchema = z.object({
   slug: z.string(),
   name: z.string(),
-  name_hi: z.string().optional(),
   tagline: z.string(),
   lifestyle_image: z.string().min(1),
   item_count: z.number().int().nonnegative(),

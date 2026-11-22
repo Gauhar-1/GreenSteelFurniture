@@ -4,6 +4,17 @@ import { updateSession } from "@/utils/supabase/middleware";
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Bypass static assets, internal Next.js requests, and favicon
+  if (
+    pathname.startsWith("/_next") ||
+    pathname.includes("favicon") ||
+    pathname.endsWith(".ico") ||
+    pathname.endsWith(".png") ||
+    pathname.endsWith(".svg")
+  ) {
+    return NextResponse.next();
+  }
+
   // Update session cookies & verify user credentials
   const { response, user, isAdmin, isConfigured } = await updateSession(request);
 

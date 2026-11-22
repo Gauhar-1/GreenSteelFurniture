@@ -75,7 +75,6 @@ export function CategoryManager({ initialCategories }: CategoryManagerProps) {
 
   // Form Fields
   const [nameEn, setNameEn] = useState("");
-  const [nameHi, setNameHi] = useState("");
   const [slug, setSlug] = useState("");
   const [parentId, setParentId] = useState<string>("");
   const [blueprintType, setBlueprintType] = useState<BlueprintType>("storage");
@@ -113,7 +112,6 @@ export function CategoryManager({ initialCategories }: CategoryManagerProps) {
   const openCreateModal = (presetParentId?: string) => {
     setEditingId(null);
     setNameEn("");
-    setNameHi("");
     setSlug("");
     setParentId(presetParentId || "");
     setBlueprintType("storage");
@@ -128,7 +126,6 @@ export function CategoryManager({ initialCategories }: CategoryManagerProps) {
   const openEditModal = (cat: Category) => {
     setEditingId(cat.id || null);
     setNameEn(cat.name_en);
-    setNameHi(cat.name_hi);
     setSlug(cat.slug);
     setParentId(cat.parent_id || "");
     setBlueprintType(cat.blueprint_type);
@@ -203,7 +200,6 @@ export function CategoryManager({ initialCategories }: CategoryManagerProps) {
     const payload: Category = {
       id,
       name_en: nameEn.trim(),
-      name_hi: nameHi.trim(),
       slug: slug.trim(),
       parent_id: parentId ? parentId : null,
       blueprint_type: blueprintType,
@@ -376,9 +372,6 @@ export function CategoryManager({ initialCategories }: CategoryManagerProps) {
                         <h3 className="text-sm sm:text-base font-serif font-bold text-[#18181B]">
                           {parent.name_en}
                         </h3>
-                        <span className="text-xs text-[#71717A] font-serif">
-                          ({parent.name_hi})
-                        </span>
                         <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#18181B]/5 text-[#9A3412] font-semibold">
                           /{parent.slug}
                         </span>
@@ -413,6 +406,7 @@ export function CategoryManager({ initialCategories }: CategoryManagerProps) {
                     <Link
                       href={`/categories/${parent.slug}`}
                       target="_blank"
+                      aria-label={`View ${parent.name_en} on storefront`}
                       className="p-1.5 rounded-xl border border-[#18181B]/15 bg-white text-[#71717A] hover:text-[#18181B]"
                       title="View on Storefront"
                     >
@@ -465,9 +459,6 @@ export function CategoryManager({ initialCategories }: CategoryManagerProps) {
                                   <span className="text-xs font-bold text-[#18181B]">
                                     {child.name_en}
                                   </span>
-                                  <span className="text-[11px] text-[#71717A] font-serif">
-                                    ({child.name_hi})
-                                  </span>
                                 </div>
                                 <div className="flex items-center gap-2 text-[10px] text-[#71717A] font-mono">
                                   <span>/{child.slug}</span>
@@ -481,6 +472,7 @@ export function CategoryManager({ initialCategories }: CategoryManagerProps) {
                               <Link
                                 href={`/categories/${child.slug}`}
                                 target="_blank"
+                                aria-label={`View ${child.name_en} on storefront`}
                                 className="p-1.5 rounded-lg border border-[#18181B]/10 text-[#71717A] hover:text-[#18181B]"
                                 title="View Storefront"
                               >
@@ -546,41 +538,22 @@ export function CategoryManager({ initialCategories }: CategoryManagerProps) {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* English & Hindi Names */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-[#18181B] mb-1">
-                    English Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={nameEn}
-                    onChange={(e) => handleNameEnChange(e.target.value)}
-                    placeholder="e.g. Master Bedroom"
-                    className="w-full px-3.5 py-2 rounded-xl border border-[#18181B]/15 text-xs font-semibold text-[#18181B] focus:border-[#9A3412] focus:outline-none"
-                  />
-                  {errors.name_en && (
-                    <p className="text-[10px] text-red-600 mt-1">{errors.name_en}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-[#18181B] mb-1">
-                    Hindi Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={nameHi}
-                    onChange={(e) => setNameHi(e.target.value)}
-                    placeholder="e.g. मास्टर बेडरूम"
-                    className="w-full px-3.5 py-2 rounded-xl border border-[#18181B]/15 text-xs font-semibold text-[#18181B] focus:border-[#9A3412] focus:outline-none"
-                  />
-                  {errors.name_hi && (
-                    <p className="text-[10px] text-red-600 mt-1">{errors.name_hi}</p>
-                  )}
-                </div>
+              {/* Category Name */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#18181B] mb-1">
+                  Category Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={nameEn}
+                  onChange={(e) => handleNameEnChange(e.target.value)}
+                  placeholder="e.g. Master Bedroom"
+                  className="w-full px-3.5 py-2 rounded-xl border border-[#18181B]/15 text-xs font-semibold text-[#18181B] focus:border-[#9A3412] focus:outline-none"
+                />
+                {errors.name_en && (
+                  <p className="text-[10px] text-red-600 mt-1">{errors.name_en}</p>
+                )}
               </div>
 
               {/* Slug */}
@@ -623,7 +596,7 @@ export function CategoryManager({ initialCategories }: CategoryManagerProps) {
                     .filter((c) => c.id !== editingId)
                     .map((p) => (
                       <option key={p.id} value={p.id}>
-                        {p.name_en} ({p.name_hi})
+                        {p.name_en}
                       </option>
                     ))}
                 </select>

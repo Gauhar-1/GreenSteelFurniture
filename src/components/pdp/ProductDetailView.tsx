@@ -3,12 +3,12 @@
 import React, { useState } from "react";
 import { cn } from "@/lib/utils";
 import type { ProductCatalogItem } from "@/services/ProductService";
-import type { Product, MediaVariant } from "@/types/product";
 import { VisualStage } from "./VisualStage";
 import { ProductConfiguration } from "./ProductConfiguration";
 import { StickyMobileActionBar } from "./StickyMobileActionBar";
-import { CheckoutDrawer } from "@/components/checkout/CheckoutDrawer";
 import { getCategoryTheme } from "@/lib/categoryThemes";
+import { useCart } from "@/context/CartContext";
+import { useSiteSettings } from "@/context/SiteSettingsContext";
 
 interface ProductDetailViewProps {
   product: ProductCatalogItem;
@@ -62,93 +62,56 @@ export function ProductDetailView({
 
   const [selectedFinish, setSelectedFinish] = useState(defaultFinish);
   const [selectedSize, setSelectedSize] = useState(defaultSize);
-  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [isAdded, setIsAdded] = useState(false);
+
+  const { addItem, openCart } = useCart();
 
   // Dynamic Theme Resolution
   const theme = getCategoryTheme(categorySlug || product.category?.slug);
   const blueprintType = product.category?.blueprint_type || "wardrobe";
 
   const currentPrice = Number(selectedSize?.price || product.base_price);
-  const tokenAmount = selectedSize?.token_amount || 500;
+
+  // Phone & WhatsApp Configuration with Admin Settings Fallback
+  const { businessPhone, whatsappUrl } = useSiteSettings();
 
   // WhatsApp Pre-filled URL
-  const waMessage = `Hello Green Steel Furniture, I'm interested in the ${product.title_en}${
-    product.title_hi ? ` (${product.title_hi})` : ""
-  } in ${selectedFinish?.finish_name} finish, ${
+  const waMessage = `Hello Green Steel Furniture, I'm interested in the ${product.title_en} in ${selectedFinish?.finish_name} finish, ${
     selectedSize?.size_label
   } size (₹${currentPrice.toLocaleString("en-IN")}). Could you please share more details?`;
-  const waUrl = `https://wa.me/919437000000?text=${encodeURIComponent(waMessage)}`;
+  const waUrl = whatsappUrl(waMessage);
+  const callUrl = `tel:${businessPhone.replace(/[^0-9+]/g, "")}`;
 
-  // Adapt configured state for the 3-step CheckoutDrawer
-  const checkoutProduct: Product = {
-    id: product.id,
-    name: `${product.title_en} — ${selectedSize?.size_label || "Standard"}`,
-    tagline: product.tagline,
-    slug: product.slug,
-    category: categoryName || product.category?.name_en || "Architectural Steel",
-    price: currentPrice,
-    mrp: Math.round(currentPrice * 1.3),
-    media: {
-      outsideView:
-        selectedFinish?.media?.lifestyle ||
-        selectedFinish?.media?.front ||
-        selectedFinish?.media?.functional ||
-        selectedFinish?.media?.macro ||
-        "/hero-bedroom.png",
-      insideView:
-        selectedFinish?.media?.functional ||
-        selectedFinish?.media?.inside ||
-        selectedFinish?.media?.front ||
-        selectedFinish?.media?.lifestyle ||
-        "/inside-wardrobe-locker.png",
-      alt: product.title_en,
-      variants: product.finishes.map((f) => {
-        const primary =
-          f.media?.lifestyle ||
-          f.media?.front ||
-          f.media?.functional ||
-          f.media?.macro ||
-          "/hero-bedroom.png";
-        const secondary =
-          f.media?.functional ||
-          f.media?.inside ||
-          f.media?.front ||
-          primary;
-        return {
-          id: f.id,
-          name: f.finish_name,
-          hex: f.hex_code,
-          outsideImageUrl: primary,
-          insideImageUrl: secondary,
-        };
-      }),
-    },
-    attributes: {
-      gauge: "Tata 20-Gauge CRCA Steel",
-      dimensions: selectedSize?.dimensions
-        ? `${selectedSize.dimensions.height || 78}H x ${selectedSize.dimensions.width || 36}W x ${selectedSize.dimensions.depth || 22}D (inches)`
-        : "Architectural Proportions",
-      tags: [selectedSize?.size_label || "Standard", selectedFinish?.finish_name || "Coated"],
-      warranty: "15-Year Rust-Proof Guarantee",
-    },
-    inStock: selectedSize?.stock_status === "IN_STOCK",
-  };
+  const handleAddToCart = () => {
+    const dimensionsStr = selectedSize?.dimensions
+      ? `${selectedSize.dimensions.height || 78}" × ${selectedSize.dimensions.width || 36}" × ${selectedSize.dimensions.depth || 22}"`
+      : "Standard Dimensions";
 
-  const checkoutVariant: MediaVariant = {
-    id: selectedFinish?.id || "def-variant",
-    name: selectedFinish?.finish_name || "Standard",
-    hex: selectedFinish?.hex_code || "#18181B",
-    outsideImageUrl:
+    const primaryImage =
       selectedFinish?.media?.lifestyle ||
       selectedFinish?.media?.front ||
       selectedFinish?.media?.functional ||
       selectedFinish?.media?.macro ||
-      "/hero-bedroom.png",
-    insideImageUrl:
-      selectedFinish?.media?.functional ||
-      selectedFinish?.media?.inside ||
-      selectedFinish?.media?.front ||
-      "/inside-wardrobe-locker.png",
+      "/hero-bedroom.png";
+
+    addItem({
+      productId: product.id,
+      productSlug: product.slug,
+      categorySlug: categorySlug || product.category?.slug || "steel-furniture",
+      title: product.title_en,
+      finishId: selectedFinish?.id || "def",
+      finishName: selectedFinish?.finish_name || "Standard",
+      finishHex: selectedFinish?.hex_code || "#18181B",
+      sizeId: selectedSize?.id || "def",
+      sizeLabel: selectedSize?.size_label || "Standard",
+      dimensionsText: dimensionsStr,
+      unitPrice: currentPrice,
+      thumbnailUrl: primaryImage,
+    });
+
+    setIsAdded(true);
+    setTimeout(() => setIsAdded(false), 2000);
+    openCart();
   };
 
   return (
@@ -191,7 +154,10 @@ export function ProductDetailView({
               selectedSize={selectedSize}
               onFinishChange={setSelectedFinish}
               onSizeChange={setSelectedSize}
-              onBookNow={() => setIsCheckoutOpen(true)}
+              onAddToCart={handleAddToCart}
+              isAdded={isAdded}
+              waUrl={waUrl}
+              callUrl={callUrl}
               theme={theme}
             />
           </div>
@@ -228,7 +194,10 @@ export function ProductDetailView({
             selectedSize={selectedSize}
             onFinishChange={setSelectedFinish}
             onSizeChange={setSelectedSize}
-            onBookNow={() => setIsCheckoutOpen(true)}
+            onAddToCart={handleAddToCart}
+            isAdded={isAdded}
+            waUrl={waUrl}
+            callUrl={callUrl}
             theme={theme}
           />
         </div>
@@ -236,21 +205,14 @@ export function ProductDetailView({
         {/* Mobile Sticky Action Bar */}
         <StickyMobileActionBar
           currentPrice={currentPrice}
-          tokenAmount={tokenAmount}
-          onBookNow={() => setIsCheckoutOpen(true)}
+          onAddToCart={handleAddToCart}
+          isAdded={isAdded}
           selectedFinishName={selectedFinish.finish_name}
           selectedSizeLabel={selectedSize.size_label}
           waUrl={waUrl}
+          callUrl={callUrl}
         />
       </div>
-
-      {/* Slide-Up Token Checkout Drawer */}
-      <CheckoutDrawer
-        isOpen={isCheckoutOpen}
-        onClose={() => setIsCheckoutOpen(false)}
-        product={checkoutProduct}
-        selectedVariant={checkoutVariant}
-      />
     </div>
   );
 }

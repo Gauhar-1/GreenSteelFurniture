@@ -22,10 +22,11 @@ export async function updateSession(request: NextRequest): Promise<UpdateSession
 
   // Development / Offline mode: if unconfigured or placeholder
   if (!supabaseUrl || !supabaseAnonKey || supabaseUrl.includes("placeholder-project")) {
+    const isDev = process.env.NODE_ENV === "development";
     return {
       response: supabaseResponse,
       user: null,
-      isAdmin: true, // Allow local development when credentials are unset
+      isAdmin: isDev, // Allow local development bypass strictly when in development mode
       isConfigured: false,
     };
   }

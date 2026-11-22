@@ -30,6 +30,7 @@ import {
   type BentoCardItem,
   type WallColorItem,
   type Category,
+  type ClientReview,
 } from "@/types/database";
 import type { ProductCatalogItem } from "@/services/ProductService";
 import {
@@ -38,6 +39,7 @@ import {
 } from "@/actions/adminActions";
 import { StorageService } from "@/services/StorageService";
 import { CompleteTheLookEditor, SelectableProduct } from "@/components/admin/CompleteTheLookEditor";
+import { ReviewsManager } from "@/components/admin/ReviewsManager";
 
 interface StorefrontVisualEditorProps {
   categories?: Category[];
@@ -46,26 +48,27 @@ interface StorefrontVisualEditorProps {
     id: string;
     section_key: string;
     title_en: string;
-    title_hi: string;
     content: Record<string, unknown>;
     is_active: boolean;
     display_order?: number;
   }>;
+  initialReviews?: ClientReview[];
 }
 
 export function StorefrontVisualEditor({
   categories = [],
   products = [],
   initialSections = [],
+  initialReviews = [],
 }: StorefrontVisualEditorProps) {
-  const [activeTab, setActiveTab] = useState<"hero" | "look" | "bento" | "wall" | "split">("hero");
+  const [activeTab, setActiveTab] = useState<"hero" | "look" | "bento" | "wall" | "split" | "reviews">("hero");
   const [isTabPending, startTabTransition] = useTransition();
   const [isTabSwitching, setIsTabSwitching] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [uploadingSection, setUploadingSection] = useState<string | null>(null);
   const [toast, setToast] = useState<{ success: boolean; message: string } | null>(null);
 
-  const handleTabChange = (nextTab: "hero" | "look" | "bento" | "wall" | "split") => {
+  const handleTabChange = (nextTab: "hero" | "look" | "bento" | "wall" | "split" | "reviews") => {
     if (nextTab === activeTab) return;
     setIsTabSwitching(true);
     // Smooth 150ms tactile transition so section change is graceful rather than snappy/glitched
@@ -119,9 +122,6 @@ export function StorefrontVisualEditor({
   );
   const [heroHeadlineEn, setHeroHeadlineEn] = useState<string>(
     heroContent.headline || heroContent.headline_en || ""
-  );
-  const [heroHeadlineHi, setHeroHeadlineHi] = useState<string>(
-    heroContent.headline_hi || ""
   );
   const [heroCtaText, setHeroCtaText] = useState<string>(
     heroContent.cta?.label || "Explore Collections"
@@ -334,7 +334,6 @@ export function StorefrontVisualEditor({
             imageUrl: heroImage,
             label: heroBadge,
             headline: heroHeadlineEn,
-            headline_hi: heroHeadlineHi,
             cta: {
               label: heroCtaText,
               href: heroCtaHref,
@@ -351,7 +350,6 @@ export function StorefrontVisualEditor({
             })),
           },
           "Master Hero Showcase",
-          "मास्टर हीरो शोकेस",
           activeStates.hero ?? true,
           displayOrders.hero ?? 0
         );
@@ -387,7 +385,6 @@ export function StorefrontVisualEditor({
             }),
           },
           "Designed for Every Space",
-          "हर कमरे के लिए डिज़ाइन किया गया",
           activeStates.bento ?? true,
           displayOrders.bento ?? 1
         );
@@ -406,7 +403,6 @@ export function StorefrontVisualEditor({
             })),
           },
           "Design by Wall Color",
-          "दीवार के रंग अनुसार",
           activeStates.wall ?? true,
           displayOrders.wall ?? 3
         );
@@ -418,7 +414,6 @@ export function StorefrontVisualEditor({
             right: splitRight,
           },
           "Craftsmanship Split",
-          "शिल्प कौशल विभाजन",
           activeStates.split ?? true,
           displayOrders.split ?? 4
         );
@@ -541,28 +536,43 @@ export function StorefrontVisualEditor({
               <SplitSquareVertical className="w-3.5 h-3.5" />
               <span>Craftsmanship</span>
             </button>
+
+            <button
+              type="button"
+              onClick={() => handleTabChange("reviews")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                activeTab === "reviews"
+                  ? "bg-[#18181B] text-white shadow-xs"
+                  : "text-[#71717A] hover:text-[#18181B]"
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Client Reviews</span>
+            </button>
           </div>
 
-          {/* Active Toggle for current section */}
-          <button
-            type="button"
-            onClick={() => handleToggleActive(activeTab)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold uppercase transition-all cursor-pointer border ${
-              activeStates[activeTab]
-                ? "bg-emerald-50 text-emerald-800 border-emerald-300"
-                : "bg-zinc-100 text-zinc-500 border-zinc-300"
-            }`}
-          >
-            {activeStates[activeTab] ? (
-              <Eye className="w-3.5 h-3.5 text-emerald-600" />
-            ) : (
-              <EyeOff className="w-3.5 h-3.5 text-zinc-500" />
-            )}
-            <span>{activeStates[activeTab] ? "Visible" : "Hidden"}</span>
-          </button>
+          {/* Active Toggle for current section (hidden on reviews tab which has its own controls) */}
+          {activeTab !== "reviews" && (
+            <button
+              type="button"
+              onClick={() => handleToggleActive(activeTab)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold uppercase transition-all cursor-pointer border ${
+                activeStates[activeTab]
+                  ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+                  : "bg-zinc-100 text-zinc-500 border-zinc-300"
+              }`}
+            >
+              {activeStates[activeTab] ? (
+                <Eye className="w-3.5 h-3.5 text-emerald-600" />
+              ) : (
+                <EyeOff className="w-3.5 h-3.5 text-zinc-500" />
+              )}
+              <span>{activeStates[activeTab] ? "Visible" : "Hidden"}</span>
+            </button>
+          )}
 
-          {/* Save Button (for tabs other than 'look' which has its own save button) */}
-          {activeTab !== "look" && (
+          {/* Save Button (hidden for 'look' and 'reviews' which manage their own persistence) */}
+          {activeTab !== "look" && activeTab !== "reviews" && (
             <button
               type="button"
               disabled={isSaving}
@@ -692,24 +702,12 @@ export function StorefrontVisualEditor({
 
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-[#71717A] mb-1">
-                  Headline (English)
+                  Headline
                 </label>
                 <input
                   type="text"
                   value={heroHeadlineEn}
                   onChange={(e) => setHeroHeadlineEn(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-[#18181B]/15 text-xs text-[#18181B]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#71717A] mb-1">
-                  Headline (Hindi)
-                </label>
-                <input
-                  type="text"
-                  value={heroHeadlineHi}
-                  onChange={(e) => setHeroHeadlineHi(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-[#18181B]/15 text-xs text-[#18181B]"
                 />
               </div>
@@ -1367,6 +1365,15 @@ export function StorefrontVisualEditor({
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* 6. CLIENT REVIEWS & B2B/D2C PORTFOLIO MANAGER                */}
+      {/* ============================================================ */}
+      {activeTab === "reviews" && (
+        <div className="animate-in fade-in duration-200">
+          <ReviewsManager initialReviews={initialReviews} products={products} />
         </div>
       )}
         </>

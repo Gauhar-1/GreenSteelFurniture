@@ -63,7 +63,6 @@ export async function saveProductWizardAction(
             category_id: validated.category_id,
             sub_category_id: validated.sub_category_id || null,
             title_en: validated.title_en,
-            title_hi: validated.title_hi,
             slug: validated.slug,
             tagline: validated.tagline,
             base_price: validated.base_price,
@@ -88,7 +87,6 @@ export async function saveProductWizardAction(
             category_id: validated.category_id,
             sub_category_id: validated.sub_category_id || null,
             title_en: validated.title_en,
-            title_hi: validated.title_hi,
             slug: validated.slug,
             tagline: validated.tagline,
             base_price: validated.base_price,
@@ -228,7 +226,10 @@ export async function saveProductWizardAction(
       }
       return {
         success: false,
-        message: `Database / Server Error: ${msg}`,
+        message:
+          process.env.NODE_ENV === "production"
+            ? "An unexpected error occurred while saving the furniture model. Please try again."
+            : `Database / Server Error: ${msg}`,
       };
     }
 
@@ -247,7 +248,6 @@ function formatZodIssueLabel(path: (string | number)[]): string {
   const [first, second, third, fourth] = path;
 
   if (first === "title_en") return "Showroom Title (EN)";
-  if (first === "title_hi") return "Hindi / Hinglish Title";
   if (first === "slug") return "URL Slug";
   if (first === "tagline") return "Editorial Tagline";
   if (first === "base_price") return "Base Catalog Price";
@@ -292,7 +292,6 @@ export async function saveStorefrontSectionAction(
   sectionKey: string,
   content: Record<string, unknown>,
   title_en = "Editorial Section",
-  title_hi = "संपादकीय अनुभाग",
   isActive = true,
   displayOrder = 0
 ): Promise<ServerActionResult<{ sectionKey: string }>> {
@@ -305,13 +304,21 @@ export async function saveStorefrontSectionAction(
       };
     }
 
+    // Guard against Base64 image bloat in storefront content
+    const contentString = JSON.stringify(content);
+    if (contentString.includes("data:image/")) {
+      return {
+        success: false,
+        message: "Base64 image blobs are strictly prohibited in storefront content. Please upload images to storage first.",
+      };
+    }
+
     if (isSupabaseConfigured()) {
       const supabase = await createServerSupabaseClient();
       const { error } = await supabase.from("storefront_sections").upsert(
         {
           section_key: sectionKey,
           title_en,
-          title_hi,
           content: {
             ...content,
             display_order: displayOrder,
@@ -330,7 +337,6 @@ export async function saveStorefrontSectionAction(
           display_order: displayOrder,
         },
         title_en,
-        title_hi,
         is_active: isActive,
       });
     }
@@ -582,8 +588,6 @@ export async function updateBookingStatusAction(
     }
 
     revalidatePath("/admin");
-    revalidatePath("/admin/orders");
-    revalidatePath("/admin/bookings");
 
     return {
       success: true,
@@ -642,4 +646,61 @@ export async function deleteStorageMediaAction(
     return { success: true };
   }
 }
+
+/**
+ * Server Action: Delete a product and its associated finishes and sizes.
+ * Strictly verifies administrator privileges before performing mutation.
+ */
+export async function deleteProductAction(
+  id: string
+): Promise<ServerActionResult<{ id: string }>> {
+  try {
+    const { authorized } = await verifyAdminSession();
+    if (!authorized) {
+      return {
+        success: false,
+        message: "Unauthorized: Administrator privileges are required to delete furniture models.",
+      };
+    }
+
+    if (!id || typeof id !== "string") {
+      return {
+        success: false,
+        message: "Invalid product identifier provided.",
+      };
+    }
+
+    if (isSupabaseConfigured()) {
+      const supabase = await createServerSupabaseClient();
+      const { error } = await supabase.from("products").delete().eq("id", id);
+      if (error) {
+        console.error("[deleteProductAction] Supabase error:", error);
+        LocalDataStore.deleteProduct(id);
+      }
+    } else {
+      LocalDataStore.deleteProduct(id);
+    }
+
+    revalidatePath("/admin");
+    revalidatePath("/admin/products");
+    revalidatePath("/categories", "layout");
+    revalidatePath("/", "layout");
+
+    return {
+      success: true,
+      message: "Furniture model deleted successfully.",
+      data: { id },
+    };
+  } catch (err) {
+    console.error("[deleteProductAction] Exception:", err);
+    return {
+      success: false,
+      message:
+        process.env.NODE_ENV === "production"
+          ? "Failed to delete furniture model."
+          : (err instanceof Error ? err.message : "Failed to delete product."),
+    };
+  }
+}
+
 

@@ -150,7 +150,6 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
         sub_category_id: initialData.sub_category_id || null,
         blueprint_type: detectedBlueprint,
         title_en: initialData.title_en,
-        title_hi: initialData.title_hi,
         slug: initialData.slug,
         tagline: initialData.tagline,
         base_price: Number(initialData.base_price),
@@ -166,7 +165,6 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
       sub_category_id: initialSub?.id || null,
       blueprint_type: initialBlueprint,
       title_en: "",
-      title_hi: "",
       slug: "",
       tagline: "",
       base_price: 0,
@@ -377,7 +375,7 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
     const errorKeys = Object.keys(fieldErrors);
     if (step === 1) {
       return errorKeys.some((k) =>
-        ["category_id", "sub_category_id", "title_en", "title_hi", "slug", "tagline", "base_price"].includes(k)
+        ["category_id", "sub_category_id", "title_en", "slug", "tagline", "base_price"].includes(k)
       );
     }
     if (step === 2) {
@@ -407,10 +405,6 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
 
     if (!formData.title_en || formData.title_en.trim().length < 3) {
       errors["title_en"] = "Showroom Title (EN) must be at least 3 characters.";
-    }
-
-    if (!formData.title_hi || formData.title_hi.trim().length < 3) {
-      errors["title_hi"] = "Hindi / Hinglish Title must be at least 3 characters.";
     }
 
     if (!formData.slug || formData.slug.trim().length < 2) {
@@ -468,7 +462,7 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
 
     // Determine earliest failing step
     const keys = Object.keys(errors);
-    if (keys.some((k) => ["category_id", "title_en", "title_hi", "slug", "tagline", "base_price"].includes(k))) {
+    if (keys.some((k) => ["category_id", "title_en", "slug", "tagline", "base_price"].includes(k))) {
       firstStep = 1;
     } else if (keys.some((k) => k.startsWith("finishes"))) {
       firstStep = 2;
@@ -521,7 +515,7 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
 
           // Auto-navigate to step with error
           const keys = Object.keys(stringErrors);
-          if (keys.some((k) => ["category_id", "title_en", "title_hi", "slug", "tagline", "base_price"].includes(k))) {
+          if (keys.some((k) => ["category_id", "title_en", "slug", "tagline", "base_price"].includes(k))) {
             setActiveStep(1);
           } else if (keys.some((k) => k.startsWith("finishes"))) {
             setActiveStep(2);
@@ -924,56 +918,28 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
                 )}
               </div>
 
-              {/* Title & Hinglish Title */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-[#71717A] mb-1.5">
-                    Showroom Title (EN) <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.title_en}
-                    onChange={(e) => handleTitleChange(e.target.value)}
-                    placeholder="e.g. Modern Steel Almirah"
-                    className={`w-full px-3.5 py-2.5 rounded-xl border text-sm font-medium transition-all ${
-                      fieldErrors["title_en"]
-                        ? "border-red-500 ring-2 ring-red-500/20 bg-red-50/20 text-red-950 focus:outline-none"
-                        : "border-[#18181B]/15 bg-[#FAF8F5]/40 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#9A3412] text-[#18181B]"
-                    }`}
-                  />
-                  {fieldErrors["title_en"] && (
-                    <p className="text-xs font-semibold text-red-600 mt-1 flex items-center gap-1">
-                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                      <span>{fieldErrors["title_en"]}</span>
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-[#71717A] mb-1.5">
-                    Hinglish / Hindi Title <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.title_hi}
-                    onChange={(e) => {
-                      setFormData({ ...formData, title_hi: e.target.value });
-                      clearFieldError("title_hi");
-                    }}
-                    placeholder="e.g. मॉडर्न स्टील अलमारी"
-                    className={`w-full px-3.5 py-2.5 rounded-xl border text-sm font-medium transition-all ${
-                      fieldErrors["title_hi"]
-                        ? "border-red-500 ring-2 ring-red-500/20 bg-red-50/20 text-red-950 focus:outline-none"
-                        : "border-[#18181B]/15 bg-[#FAF8F5]/40 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#9A3412] text-[#18181B]"
-                    }`}
-                  />
-                  {fieldErrors["title_hi"] && (
-                    <p className="text-xs font-semibold text-red-600 mt-1 flex items-center gap-1">
-                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                      <span>{fieldErrors["title_hi"]}</span>
-                    </p>
-                  )}
-                </div>
+              {/* Showroom Title */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#71717A] mb-1.5">
+                  Showroom Title (EN) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.title_en}
+                  onChange={(e) => handleTitleChange(e.target.value)}
+                  placeholder="e.g. Modern Steel Almirah"
+                  className={`w-full px-3.5 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+                    fieldErrors["title_en"]
+                      ? "border-red-500 ring-2 ring-red-500/20 bg-red-50/20 text-red-950 focus:outline-none"
+                      : "border-[#18181B]/15 bg-[#FAF8F5]/40 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#9A3412] text-[#18181B]"
+                  }`}
+                />
+                {fieldErrors["title_en"] && (
+                  <p className="text-xs font-semibold text-red-600 mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{fieldErrors["title_en"]}</span>
+                  </p>
+                )}
               </div>
 
               {/* Editorial Tagline */}

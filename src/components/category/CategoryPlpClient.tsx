@@ -75,25 +75,15 @@ export function CategoryPlpClient({
             >
               <Sparkles className="w-3 h-3" />
               <span>{theme.moodLabel}</span>
-              {theme.moodLabelHi && (
-                <span className="hidden md:inline opacity-75">
-                  • {theme.moodLabelHi}
-                </span>
-              )}
             </div>
           </div>
 
-          {/* Bilingual Title & Subtitle */}
+          {/* Title & Subtitle */}
           <div className="flex items-baseline justify-between gap-3">
             <div className="flex items-baseline gap-2 sm:gap-3 flex-wrap">
               <h1 className="text-xl sm:text-2xl lg:text-3xl font-serif text-[#18181B] tracking-tight leading-none">
                 {category.name}
               </h1>
-              {category.name_hi && (
-                <span className="text-xs sm:text-sm font-sans text-[#71717A] font-medium">
-                  {category.name_hi}
-                </span>
-              )}
             </div>
 
             <span className="text-xs font-semibold text-[#71717A] shrink-0">

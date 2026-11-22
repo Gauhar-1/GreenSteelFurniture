@@ -122,7 +122,6 @@ export class CategoryService {
       return {
         slug: parent.slug,
         name: parent.name_en,
-        name_hi: parent.name_hi,
         tagline: parent.subtitle || "Architectural pure steel furniture engineered for modern Indian living.",
         lifestyle_image: parent.cover_image || "/hero-bedroom.png",
         item_count: products.length,
@@ -162,7 +161,6 @@ export class CategoryService {
         return {
           slug: parent.slug,
           name: parent.name_en,
-          name_hi: parent.name_hi,
           tagline: parent.subtitle || "Precision engineered pure steel furniture.",
           lifestyle_image: parent.cover_image || "/hero-bedroom.png",
           item_count: productCount,

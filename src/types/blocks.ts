@@ -210,6 +210,19 @@ export const CategoryGridBlockSchema = z.object({
 export type CategoryGridBlockData = z.infer<typeof CategoryGridBlockSchema>;
 
 /**
+ * Section: ClientReviewsShowcase Schema
+ */
+export const ClientReviewsShowcaseBlockSchema = z.object({
+  id: z.string(),
+  type: z.literal("client_reviews_showcase"),
+  title: z.string().default("Crafted for Homes & Commercial Spaces"),
+  subtitle: z.string().optional(),
+  clientTypeFilter: z.enum(["ALL", "D2C", "B2B"]).default("ALL").optional(),
+  limit: z.number().int().default(6).optional(),
+});
+export type ClientReviewsShowcaseBlockData = z.infer<typeof ClientReviewsShowcaseBlockSchema>;
+
+/**
  * Discriminated Union for Page Blocks
  */
 export const PageBlockSchema = z.discriminatedUnion("type", [
@@ -220,6 +233,7 @@ export const PageBlockSchema = z.discriminatedUnion("type", [
   VisualCraftsmanshipSplitBlockSchema,
   HeroBlockSchema,
   CategoryGridBlockSchema,
+  ClientReviewsShowcaseBlockSchema,
 ]);
 
 export type PageBlock = z.infer<typeof PageBlockSchema>;

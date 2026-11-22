@@ -17,6 +17,7 @@ import {
   Layers,
 } from "lucide-react";
 import { type ProductCatalogItem } from "@/services/ProductService";
+import { deleteProductAction } from "@/actions/adminActions";
 import { EmptyState } from "@/components/admin/EmptyState";
 import { AdminProductCard } from "@/components/admin/AdminProductCard";
 import { cn } from "@/lib/utils";
@@ -36,7 +37,6 @@ export function ProductCatalogList({ initialProducts }: ProductCatalogListProps)
     const q = searchQuery.toLowerCase();
     return (
       p.title_en.toLowerCase().includes(q) ||
-      p.title_hi.toLowerCase().includes(q) ||
       p.category?.name_en.toLowerCase().includes(q) ||
       p.slug.toLowerCase().includes(q)
     );
@@ -48,12 +48,19 @@ export function ProductCatalogList({ initialProducts }: ProductCatalogListProps)
     }
 
     startTransition(async () => {
-      // In production calls delete action
-      setProducts((prev) => prev.filter((p) => p.id !== id));
-      setToast({
-        success: true,
-        message: `Product "${title}" removed from catalog.`,
-      });
+      const res = await deleteProductAction(id);
+      if (res.success) {
+        setProducts((prev) => prev.filter((p) => p.id !== id));
+        setToast({
+          success: true,
+          message: `Product "${title}" removed from catalog.`,
+        });
+      } else {
+        setToast({
+          success: false,
+          message: res.message || `Failed to delete "${title}".`,
+        });
+      }
     });
   };
 
@@ -181,9 +188,6 @@ export function ProductCatalogList({ initialProducts }: ProductCatalogListProps)
                             <div>
                               <div className="font-bold text-[#18181B] line-clamp-1">
                                 {p.title_en}
-                              </div>
-                              <div className="text-[11px] text-[#71717A] font-serif">
-                                {p.title_hi}
                               </div>
                               <span className="text-[10px] font-mono text-[#9A3412]">
                                 /{p.slug}

@@ -1,13 +1,36 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-let serverClient: SupabaseClient | null = null;
+let serverAnonClient: SupabaseClient | null = null;
+let serverAdminClient: SupabaseClient | null = null;
 
 /**
- * Returns a Supabase client for Server Actions and Server Components.
- * Falls back to placeholder URLs during development when env vars are not yet populated.
+ * Returns a public Supabase client for Server Components and storefront services.
+ * Strictly uses NEXT_PUBLIC_SUPABASE_ANON_KEY to ensure Row Level Security (RLS) is enforced.
  */
 export function getSupabaseServerClient(): SupabaseClient {
-  if (serverClient) return serverClient;
+  if (serverAnonClient) return serverAnonClient;
+
+  const supabaseUrl =
+    process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder-project.supabase.co";
+  const supabaseKey =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder-key";
+
+  serverAnonClient = createClient(supabaseUrl, supabaseKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+
+  return serverAnonClient;
+}
+
+/**
+ * Returns a privileged Supabase client for internal administrator server actions.
+ * NEVER expose this to client components or public storefront readers.
+ */
+export function getSupabaseAdminClient(): SupabaseClient {
+  if (serverAdminClient) return serverAdminClient;
 
   const supabaseUrl =
     process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder-project.supabase.co";
@@ -16,12 +39,12 @@ export function getSupabaseServerClient(): SupabaseClient {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
     "placeholder-key";
 
-  serverClient = createClient(supabaseUrl, supabaseKey, {
+  serverAdminClient = createClient(supabaseUrl, supabaseKey, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,
     },
   });
 
-  return serverClient;
+  return serverAdminClient;
 }

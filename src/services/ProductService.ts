@@ -1,5 +1,4 @@
 import { getSupabaseServerClient } from "@/lib/supabase/server";
-import type { ProductBlueprintFormData } from "@/types/adminProduct";
 import type { Product, ProductFinish, ProductSize } from "@/types/database";
 import { LocalDataStore } from "@/services/LocalDataStore";
 
@@ -8,7 +7,6 @@ export interface ProductCatalogItem {
   category_id: string;
   sub_category_id: string | null;
   title_en: string;
-  title_hi: string;
   slug: string;
   tagline: string;
   base_price: number;
@@ -236,25 +234,5 @@ export class ProductService {
     } catch {
       return LocalDataStore.deleteProduct(id);
     }
-  }
-
-  /**
-   * Legacy adapter for ProductBlueprintFormData
-   */
-  static async saveProductBlueprint(data: ProductBlueprintFormData): Promise<{
-    success: boolean;
-    productId: string;
-    variantCount: number;
-    message: string;
-  }> {
-    const generatedProductId = `prod-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`;
-    await new Promise((resolve) => setTimeout(resolve, 300));
-
-    return {
-      success: true,
-      productId: generatedProductId,
-      variantCount: data.variants.length,
-      message: `Successfully created "${data.title}" with ${data.variants.length} variant(s).`,
-    };
   }
 }

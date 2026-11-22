@@ -3,8 +3,8 @@
 import { useState, useMemo } from "react";
 import { VisualFilterStrip } from "@/components/catalog/VisualFilterStrip";
 import { FurnitureCard } from "@/components/catalog/FurnitureCard";
-import { CheckoutDrawer } from "@/components/checkout/CheckoutDrawer";
 import type { Product, FilterPill, MediaVariant } from "@/types/product";
+import { useCart } from "@/context/CartContext";
 import { RotateCcw } from "lucide-react";
 
 interface CatalogClientViewProps {
@@ -19,17 +19,14 @@ interface CatalogClientViewProps {
  * - Mobile: 1 column (grid-cols-1)
  * - Tablet: 2 columns (sm:grid-cols-2)
  * - Desktop: 3 columns (md:grid-cols-3)
- * - Seamless slide-up checkout drawer integration
+ * - Persistent cart handoff for WhatsApp ordering
  */
 export function CatalogClientView({
   initialProducts,
   filterPills,
 }: CatalogClientViewProps) {
   const [activeTag, setActiveTag] = useState<string>("all");
-  const [checkoutTarget, setCheckoutTarget] = useState<{
-    product: Product;
-    variant: MediaVariant;
-  } | null>(null);
+  const { addItem, openCart } = useCart();
 
   // Filter products based on selected visual tag
   const filteredProducts = useMemo(() => {
@@ -42,6 +39,24 @@ export function CatalogClientView({
       )
     );
   }, [initialProducts, activeTag]);
+
+  const handleAddToCart = (product: Product, variant: MediaVariant) => {
+    addItem({
+      productId: product.id,
+      productSlug: product.slug,
+      categorySlug: product.category ? product.category.toLowerCase().replace(/[^a-z0-9-]/g, "-") : "furniture",
+      title: product.name,
+      finishId: variant.id,
+      finishName: variant.name,
+      finishHex: variant.hex,
+      sizeId: "standard",
+      sizeLabel: "Standard",
+      dimensionsText: product.attributes.dimensions || "Standard Dimensions",
+      unitPrice: product.price,
+      thumbnailUrl: variant.outsideImageUrl || product.media.outsideView || "/hero-bedroom.png",
+    });
+    openCart();
+  };
 
   return (
     <div className="w-full flex flex-col bg-[#FAF9F6]">
@@ -83,9 +98,7 @@ export function CatalogClientView({
               <FurnitureCard
                 key={product.id}
                 product={product}
-                onBookNow={(prod, variant) =>
-                  setCheckoutTarget({ product: prod, variant })
-                }
+                onBookNow={handleAddToCart}
               />
             ))}
           </div>
@@ -108,14 +121,6 @@ export function CatalogClientView({
           </div>
         )}
       </div>
-
-      {/* 4. Slide-Up Token Advance Checkout Drawer */}
-      <CheckoutDrawer
-        isOpen={!!checkoutTarget}
-        onClose={() => setCheckoutTarget(null)}
-        product={checkoutTarget?.product ?? null}
-        selectedVariant={checkoutTarget?.variant ?? null}
-      />
     </div>
   );
 }

@@ -59,7 +59,11 @@ export function AdminLogin() {
       }
 
       setSuccessMessage("Authentication successful. Redirecting to Studio...");
-      const destination = res.data?.redirectTo || redirectTo || "/admin";
+      const rawDest = res.data?.redirectTo || redirectTo || "/admin";
+      const destination =
+        rawDest.startsWith("/") && !rawDest.startsWith("//") && !rawDest.includes("://")
+          ? rawDest
+          : "/admin";
 
       // Allow session cookies to sync before pushing route
       setTimeout(() => {

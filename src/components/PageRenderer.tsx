@@ -6,6 +6,7 @@ import { VisualCraftsmanshipSplit } from "@/components/blocks/VisualCraftsmanshi
 import { WallColorMatcher } from "@/components/blocks/WallColorMatcher";
 import { HeroBlock } from "@/components/blocks/HeroBlock";
 import { CategoryGridBlock } from "@/components/blocks/CategoryGridBlock";
+import { ClientReviewsShowcase } from "@/components/blocks/ClientReviewsShowcase";
 import { ShowroomEmptyState } from "@/components/ShowroomEmptyState";
 
 interface PageRendererProps {
@@ -47,6 +48,9 @@ export function PageRenderer({ blocks }: PageRendererProps) {
 
           case "category_grid":
             return <CategoryGridBlock key={block.id} data={block} />;
+
+          case "client_reviews_showcase":
+            return <ClientReviewsShowcase key={block.id} data={block} />;
 
           default: {
             // TypeScript exhaustiveness guarantee

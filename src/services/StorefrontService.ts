@@ -15,7 +15,6 @@ interface RawStorefrontRow {
   id: string;
   section_key: string;
   title_en: string;
-  title_hi: string;
   content: Record<string, unknown>;
   is_active: boolean;
   display_order?: number;
@@ -25,7 +24,6 @@ interface HydratedProductSummary {
   id: string;
   slug: string;
   title_en: string;
-  title_hi: string;
   formattedPrice: string;
   imageUrl: string;
   href: string;
@@ -35,6 +33,29 @@ export class StorefrontService {
   public static isConfigured(): boolean {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     return Boolean(url && !url.includes("placeholder-project"));
+  }
+
+  /**
+   * Fetch custom section content from storefront_sections table
+   */
+  public static async getStorefrontSections(): Promise<RawStorefrontRow[]> {
+    try {
+      if (!this.isConfigured()) {
+        const sections = LocalDataStore.getAllStorefrontSections();
+        return (sections as unknown as RawStorefrontRow[]) || [];
+      }
+      const supabase = getSupabaseServerClient();
+      const { data, error } = await supabase
+        .from("storefront_sections")
+        .select("*")
+        .order("created_at", { ascending: true });
+      if (error || !data) {
+        return (LocalDataStore.getAllStorefrontSections() as unknown as RawStorefrontRow[]) || [];
+      }
+      return data as RawStorefrontRow[];
+    } catch {
+      return (LocalDataStore.getAllStorefrontSections() as unknown as RawStorefrontRow[]) || [];
+    }
   }
 
   /**
@@ -85,7 +106,7 @@ export class StorefrontService {
         const supabase = getSupabaseServerClient();
         const { data, error } = await supabase
           .from("storefront_sections")
-          .select("id, section_key, title_en, title_hi, content, is_active, created_at")
+          .select("id, section_key, title_en, content, is_active, created_at")
           .eq("is_active", true)
           .order("created_at", { ascending: true });
 
@@ -170,10 +191,9 @@ export class StorefrontService {
                 id,
                 slug,
                 title_en,
-                title_hi,
                 base_price,
                 is_active,
-                category:categories!products_category_id_fkey(id, slug, name_en, name_hi),
+                category:categories!products_category_id_fkey(id, slug, name_en),
                 finishes:product_finishes(id, finish_name, hex_code, media, is_default),
                 sizes:product_sizes(id, size_label, price, is_default)
               `)
@@ -204,7 +224,6 @@ export class StorefrontService {
                   id: p.id,
                   slug: p.slug,
                   title_en: p.title_en,
-                  title_hi: p.title_hi,
                   formattedPrice,
                   imageUrl: img,
                   href,
@@ -232,7 +251,6 @@ export class StorefrontService {
                 id: p.id,
                 slug: p.slug,
                 title_en: p.title_en,
-                title_hi: p.title_hi,
                 formattedPrice,
                 imageUrl: img,
                 href,
@@ -496,6 +514,20 @@ export class StorefrontService {
           });
         }
 
+        // 6. CLIENT REVIEWS SHOWCASE
+        else if (key === "client_reviews_showcase") {
+          if (seenBlockTypes.has("client_reviews_showcase")) continue;
+          seenBlockTypes.add("client_reviews_showcase");
+          blocks.push({
+            id: row.id || "client-reviews-showcase",
+            type: "client_reviews_showcase",
+            title: content.title || row.title_en || "Crafted for Homes & Commercial Spaces",
+            subtitle: content.subtitle,
+            clientTypeFilter: content.clientTypeFilter || "ALL",
+            limit: typeof content.limit === "number" ? content.limit : 6,
+          });
+        }
+
         // LEGACY: category_grid
         else if (key === "category_grid") {
           blocks.push({
@@ -521,6 +553,18 @@ export class StorefrontService {
             trustBadges: content.trustBadges || [],
           });
         }
+      }
+
+      // Ensure client reviews showcase is appended if not explicitly configured in DB
+      if (!seenBlockTypes.has("client_reviews_showcase")) {
+        blocks.push({
+          id: "default-client-reviews-showcase",
+          type: "client_reviews_showcase",
+          title: "Crafted for Homes & Commercial Spaces",
+          subtitle: "Real commissions and verified client feedback across residential and institutional projects.",
+          clientTypeFilter: "ALL",
+          limit: 6,
+        });
       }
 
       return blocks;

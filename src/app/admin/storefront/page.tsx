@@ -3,6 +3,7 @@ import { Metadata } from "next";
 import { StorefrontVisualEditor } from "@/components/admin/StorefrontVisualEditor";
 import { CategoryService } from "@/services/CategoryService";
 import { ProductService } from "@/services/ProductService";
+import { ReviewService } from "@/services/ReviewService";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { LocalDataStore } from "@/services/LocalDataStore";
 
@@ -15,9 +16,10 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminStorefrontPage() {
-  const [categories, products] = await Promise.all([
+  const [categories, products, reviews] = await Promise.all([
     CategoryService.getAllCategories(),
     ProductService.getProducts(),
+    ReviewService.getAllAdminReviews(),
   ]);
 
   let initialSections: any[] = [];
@@ -50,6 +52,7 @@ export default async function AdminStorefrontPage() {
         categories={categories}
         products={products}
         initialSections={initialSections}
+        initialReviews={reviews}
       />
     </div>
   );

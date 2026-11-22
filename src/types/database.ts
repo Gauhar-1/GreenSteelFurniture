@@ -34,14 +34,26 @@ export type OrderStatus = z.infer<typeof OrderStatusEnum>;
 // ============================================================================
 
 /**
+ * Safe image URL validator rejecting Base64 data URLs to eliminate DB bloat
+ */
+export const SafeImageUrlSchema = z
+  .string()
+  .refine(
+    (val) => !val || !val.trim().startsWith("data:image/"),
+    {
+      message: "Base64 image strings (data:image/...) are strictly prohibited in the database. Images must be uploaded to storage.",
+    }
+  );
+
+/**
  * Exact 4-slot media keys required for every product finish
  */
 export const FinishMediaSchema = z
   .object({
-    lifestyle: z.string().default(""),
-    front: z.string().default(""),
-    functional: z.string().default(""),
-    macro: z.string().default(""),
+    lifestyle: SafeImageUrlSchema.default(""),
+    front: SafeImageUrlSchema.default(""),
+    functional: SafeImageUrlSchema.default(""),
+    macro: SafeImageUrlSchema.default(""),
   })
   .refine(
     (media) =>
@@ -84,10 +96,11 @@ export const CategorySchema = z.object({
   id: z.string().optional(),
   parent_id: z.string().nullable().optional(),
   name_en: z.string().min(2, "English name is required"),
-  name_hi: z.string().min(2, "Hindi name is required"),
   slug: z.string().min(2, "Slug is required"),
   blueprint_type: BlueprintTypeEnum,
-  cover_image: z.string().min(1, "Cover image is required"),
+  cover_image: SafeImageUrlSchema.refine((v) => Boolean(v && v.trim().length > 0), {
+    message: "Cover image is required",
+  }),
   subtitle: z.string().nullable().optional(),
   display_order: z.number().int().default(0),
   is_active: z.boolean().default(true),
@@ -104,7 +117,6 @@ export const ProductSchema = z.object({
   category_id: z.string().uuid("Category is required"),
   sub_category_id: z.string().uuid().nullable().optional(),
   title_en: z.string().min(2, "English title is required"),
-  title_hi: z.string().min(2, "Hindi title is required"),
   slug: z.string().min(2, "Slug is required"),
   tagline: z.string().min(4, "Tagline is required"),
   base_price: z.number().positive("Base price must be greater than zero"),
@@ -156,7 +168,6 @@ export const StorefrontSectionSchema = z.object({
   id: z.string().uuid().optional(),
   section_key: z.string().min(2, "Section key is required"),
   title_en: z.string().min(2, "English title is required"),
-  title_hi: z.string().min(2, "Hindi title is required"),
   content: z.record(z.unknown()),
   is_active: z.boolean().default(true),
   display_order: z.number().default(0).optional(),
@@ -197,7 +208,6 @@ export const ProductWizardFormSchema = z.object({
   sub_category_id: z.string().nullable().optional(),
   blueprint_type: BlueprintTypeEnum,
   title_en: z.string().min(3, "Title must be at least 3 characters"),
-  title_hi: z.string().min(3, "Hindi/Hinglish title is required"),
   slug: z.string().min(2, "Slug is required"),
   tagline: z.string().min(4, "Tagline must be at least 4 characters"),
   base_price: z.number().positive("Base price must be greater than zero"),
@@ -283,3 +293,131 @@ export const CompleteTheLookSchema = z.object({
   sets: z.array(CompleteTheLookSetSchema).min(1, "At least one room set is required"),
 });
 export type CompleteTheLookData = z.infer<typeof CompleteTheLookSchema>;
+
+// ============================================================================
+// 5. SITE SETTINGS & CLIENT REVIEWS SCHEMAS
+// ============================================================================
+
+export const SocialLinksSchema = z.object({
+  instagram: z.string().default(""),
+  facebook: z.string().default(""),
+  youtube: z.string().default(""),
+});
+export type SocialLinks = z.infer<typeof SocialLinksSchema>;
+
+export const SiteSettingsSchema = z.object({
+  id: z.literal("global").default("global"),
+  brand_name: z.string().min(1, "Brand name is required").default("Green Steel Furniture"),
+  footer_tagline: z.string().default("Pure heavy-gauge steel furniture engineered for generations. Handcrafted in our Gorakhpur industrial studio."),
+  phone_primary: z.string().default("+91 98765 43210"),
+  whatsapp_number: z.string().min(10, "Valid WhatsApp number is required").default("919876543210"),
+  email: z.string().email("Valid email required").or(z.literal("")).default("concierge@greensteelfurniture.com"),
+  showroom_address: z.string().default("NH-28 Industrial Corridor, Showroom & Design Studio, Gorakhpur, UP 273001"),
+  factory_address: z.string().default("Plot 14-16, Phase II Industrial Estate, Gorakhpur, UP 273001"),
+  google_maps_url: z.string().default("https://maps.google.com/?q=Gorakhpur+Industrial+Area"),
+  operating_hours: z.string().default("Mon–Sat, 9:30 AM – 8:00 PM"),
+  service_districts: z.array(z.string()).default([
+    "Gorakhpur",
+    "Lucknow",
+    "Varanasi",
+    "Ayodhya",
+    "Basti",
+    "Deoria",
+    "Kushinagar",
+    "Azamgarh",
+    "Mau",
+    "Ballia",
+  ]),
+  social_links: SocialLinksSchema.default({
+    instagram: "https://instagram.com/greensteelfurniture",
+    facebook: "https://facebook.com/greensteelfurniture",
+    youtube: "",
+  }),
+  updated_at: z.string().optional(),
+});
+export type SiteSettings = z.infer<typeof SiteSettingsSchema>;
+
+export const DEFAULT_SITE_SETTINGS: SiteSettings = {
+  id: "global",
+  brand_name: "Green Steel Furniture",
+  footer_tagline:
+    "Pure heavy-gauge steel furniture engineered for generations. Handcrafted in our Gorakhpur industrial studio.",
+  phone_primary: "+91 98765 43210",
+  whatsapp_number: "919876543210",
+  email: "concierge@greensteelfurniture.com",
+  showroom_address:
+    "NH-28 Industrial Corridor, Showroom & Design Studio, Gorakhpur, Uttar Pradesh 273001",
+  factory_address:
+    "Plot 14-16, Phase II Industrial Estate, Gorakhpur, UP 273001",
+  google_maps_url: "https://maps.google.com/?q=Gorakhpur+Industrial+Area",
+  operating_hours: "Mon–Sat, 9:30 AM – 8:00 PM",
+  service_districts: [
+    "Gorakhpur",
+    "Lucknow",
+    "Varanasi",
+    "Ayodhya",
+    "Basti",
+    "Deoria",
+    "Kushinagar",
+    "Azamgarh",
+    "Mau",
+    "Ballia",
+  ],
+  social_links: {
+    instagram: "https://instagram.com/greensteelfurniture",
+    facebook: "https://facebook.com/greensteelfurniture",
+    youtube: "",
+  },
+};
+
+export const ClientTypeEnum = z.enum(["D2C", "B2B"]);
+export type ClientType = z.infer<typeof ClientTypeEnum>;
+
+export const ClientReviewSchema = z.object({
+  id: z.string(),
+  client_type: ClientTypeEnum,
+  client_name: z.string().min(1, "Client name is required"),
+  company_or_location: z.string().min(1, "Location or company is required"),
+  project_title: z.string().min(1, "Project title is required"),
+  review_text: z.string().min(5, "Review text is required"),
+  rating: z.number().int().min(1).max(5).default(5),
+  media_urls: z.array(z.string()).default([]),
+  linked_product_id: z.string().nullable().optional(),
+  is_featured: z.boolean().default(false),
+  is_active: z.boolean().default(true),
+  display_order: z.number().int().default(0),
+  created_at: z.string().optional(),
+  updated_at: z.string().optional(),
+  linked_product: z
+    .object({
+      id: z.string(),
+      title_en: z.string(),
+      slug: z.string(),
+      category: z
+        .object({
+          slug: z.string(),
+        })
+        .nullable()
+        .optional(),
+    })
+    .nullable()
+    .optional(),
+});
+export type ClientReview = z.infer<typeof ClientReviewSchema>;
+
+export const ClientReviewFormSchema = z.object({
+  id: z.string().optional(),
+  client_type: ClientTypeEnum,
+  client_name: z.string().min(1, "Client name is required"),
+  company_or_location: z.string().min(1, "Location or company is required"),
+  project_title: z.string().min(1, "Project title is required"),
+  review_text: z.string().min(5, "Review text is required"),
+  rating: z.number().int().min(1).max(5).default(5),
+  media_urls: z.array(SafeImageUrlSchema).default([]),
+  linked_product_id: z.string().nullable().optional().or(z.literal("").transform(() => null)),
+  is_featured: z.boolean().default(false),
+  is_active: z.boolean().default(true),
+  display_order: z.number().int().default(0),
+});
+export type ClientReviewFormData = z.infer<typeof ClientReviewFormSchema>;
+

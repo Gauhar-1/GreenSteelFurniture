@@ -1,7 +1,6 @@
 export interface CategoryTheme {
   key: string;
   moodLabel: string;
-  moodLabelHi: string;
   bgSurface: string;
   bgCard: string;
   accentHex: string;
@@ -15,7 +14,6 @@ export const CATEGORY_THEMES: Record<string, CategoryTheme> = {
   bedroom: {
     key: "bedroom",
     moodLabel: "Warm Sanctuary",
-    moodLabelHi: "शांत शयनकक्ष संग्रह",
     bgSurface: "#F7F4EF", // Warm Limestone
     bgCard: "#FFFFFF",
     accentHex: "#9A3412", // Terracotta
@@ -27,7 +25,6 @@ export const CATEGORY_THEMES: Record<string, CategoryTheme> = {
   wardrobe: {
     key: "wardrobe",
     moodLabel: "Warm Sanctuary",
-    moodLabelHi: "अलमारी और तिजोरी",
     bgSurface: "#F7F4EF",
     bgCard: "#FFFFFF",
     accentHex: "#9A3412",
@@ -39,7 +36,6 @@ export const CATEGORY_THEMES: Record<string, CategoryTheme> = {
   bed: {
     key: "bed",
     moodLabel: "Rest & Architecture",
-    moodLabelHi: "मजबूत स्टील पलंग",
     bgSurface: "#F5F2EB",
     bgCard: "#FFFFFF",
     accentHex: "#854D0E", // Warm bronze
@@ -51,7 +47,6 @@ export const CATEGORY_THEMES: Record<string, CategoryTheme> = {
   "living-room": {
     key: "living-room",
     moodLabel: "Architectural Gallery",
-    moodLabelHi: "आधुनिक बैठक संग्रह",
     bgSurface: "#F2F4F7", // Slate limestone
     bgCard: "#FFFFFF",
     accentHex: "#1E3A5F", // Navy steel
@@ -63,7 +58,6 @@ export const CATEGORY_THEMES: Record<string, CategoryTheme> = {
   "living-lounge": {
     key: "living-lounge",
     moodLabel: "Architectural Gallery",
-    moodLabelHi: "आधुनिक बैठक संग्रह",
     bgSurface: "#F2F4F7",
     bgCard: "#FFFFFF",
     accentHex: "#1E3A5F",
@@ -75,7 +69,6 @@ export const CATEGORY_THEMES: Record<string, CategoryTheme> = {
   seating: {
     key: "seating",
     moodLabel: "Architectural Gallery",
-    moodLabelHi: "बैठक फर्नीचर",
     bgSurface: "#F2F4F7",
     bgCard: "#FFFFFF",
     accentHex: "#1E3A5F",
@@ -87,7 +80,6 @@ export const CATEGORY_THEMES: Record<string, CategoryTheme> = {
   dining: {
     key: "dining",
     moodLabel: "Gathering Hearth",
-    moodLabelHi: "डाइनिंग और भोजन कक्ष",
     bgSurface: "#FBF6F0",
     bgCard: "#FFFFFF",
     accentHex: "#78350F", // Amber bronze
@@ -99,7 +91,6 @@ export const CATEGORY_THEMES: Record<string, CategoryTheme> = {
   "dining-space": {
     key: "dining-space",
     moodLabel: "Gathering Hearth",
-    moodLabelHi: "डाइनिंग और भोजन कक्ष",
     bgSurface: "#FBF6F0",
     bgCard: "#FFFFFF",
     accentHex: "#78350F",
@@ -111,7 +102,6 @@ export const CATEGORY_THEMES: Record<string, CategoryTheme> = {
   table: {
     key: "table",
     moodLabel: "Gathering Hearth",
-    moodLabelHi: "शुद्ध स्टील टेबल",
     bgSurface: "#FBF6F0",
     bgCard: "#FFFFFF",
     accentHex: "#78350F",
@@ -123,7 +113,6 @@ export const CATEGORY_THEMES: Record<string, CategoryTheme> = {
   workspace: {
     key: "workspace",
     moodLabel: "Focused Studio",
-    moodLabelHi: "कार्यालय और अध्ययन",
     bgSurface: "#F3F4F6", // Matte steel
     bgCard: "#FFFFFF",
     accentHex: "#1F2937", // Charcoal
@@ -135,7 +124,6 @@ export const CATEGORY_THEMES: Record<string, CategoryTheme> = {
   "home-office-study": {
     key: "home-office-study",
     moodLabel: "Focused Studio",
-    moodLabelHi: "कार्यालय और अध्ययन",
     bgSurface: "#F3F4F6",
     bgCard: "#FFFFFF",
     accentHex: "#1F2937",
@@ -147,7 +135,6 @@ export const CATEGORY_THEMES: Record<string, CategoryTheme> = {
   storage: {
     key: "storage",
     moodLabel: "Vault & Organization",
-    moodLabelHi: "सुरक्षित स्टोरेज सिस्टम",
     bgSurface: "#F4F4F5",
     bgCard: "#FFFFFF",
     accentHex: "#27272A",

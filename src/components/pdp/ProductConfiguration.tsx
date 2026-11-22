@@ -9,7 +9,8 @@ import {
   ChevronRight,
   MessageCircle,
   Clock,
-  ArrowRight,
+  Phone,
+  ShoppingBag,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TactileButton } from "@/components/ui/TactileButton";
@@ -25,7 +26,10 @@ interface ProductConfigurationProps {
   selectedSize: ProductCatalogItem["sizes"][number];
   onFinishChange: (finish: ProductCatalogItem["finishes"][number]) => void;
   onSizeChange: (size: ProductCatalogItem["sizes"][number]) => void;
-  onBookNow: () => void;
+  onAddToCart: () => void;
+  isAdded?: boolean;
+  waUrl: string;
+  callUrl: string;
   theme: CategoryTheme;
   className?: string;
 }
@@ -34,12 +38,12 @@ interface ProductConfigurationProps {
  * ProductConfiguration — Luxury Viewport Specification & Configurator Panel
  * 
  * Renders 100% of Supabase Admin Fields:
- * 1. Breadcrumbs & Bilingual Title (title_en / title_hi) & Tagline
+ * 1. Breadcrumbs & Title (title_en) & Tagline
  * 2. Live Dynamic Pricing & Stock Badge (IN_STOCK / MADE_TO_ORDER) + Delivery Days
  * 3. Finish Selector with instant cross-fade triggering
  * 4. Size & Dimension Selector with live dimension pills
  * 5. Engineering Highlights 2-column architectural spec grid
- * 6. Sticky Action Bar: Primary Token reservation + WhatsApp secondary inquiry
+ * 6. Cart & WhatsApp / Direct Call Action Bar
  */
 export function ProductConfiguration({
   product,
@@ -50,28 +54,21 @@ export function ProductConfiguration({
   selectedSize,
   onFinishChange,
   onSizeChange,
-  onBookNow,
+  onAddToCart,
+  isAdded = false,
+  waUrl,
+  callUrl,
   theme,
   className,
 }: ProductConfigurationProps) {
   const price = Number(selectedSize?.price || product.base_price);
   const mrp = Math.round(price * 1.3);
-  const tokenAmount = selectedSize?.token_amount || 500;
   const deliveryDays = selectedSize?.delivery_days || 4;
   const isStockReady = selectedSize?.stock_status === "IN_STOCK";
 
   // Dimension details
   const dims = selectedSize?.dimensions;
   const hasDimensions = dims && (dims.height || dims.width || dims.depth || dims.length);
-
-  // WhatsApp Pre-filled Link Generator
-  const waMessage = `Hello Green Steel Furniture, I'm interested in the ${product.title_en}${
-    product.title_hi ? ` (${product.title_hi})` : ""
-  } in ${selectedFinish?.finish_name || "Standard"} finish, ${
-    selectedSize?.size_label || "Standard"
-  } size (₹${price.toLocaleString("en-IN")}). Could you please share more details?`;
-
-  const waUrl = `https://wa.me/919437000000?text=${encodeURIComponent(waMessage)}`;
 
   return (
     <div className={cn("w-full flex flex-col gap-5 text-[#18181B]", className)}>
@@ -98,17 +95,12 @@ export function ProductConfiguration({
         )}
       </nav>
 
-      {/* 2. Bilingual Title & Identity */}
+      {/* 2. Product Title & Identity */}
       <div className="flex flex-col gap-1.5 border-b border-[#18181B]/10 pb-4">
         <div className="flex items-baseline gap-2.5 flex-wrap">
           <h1 className="text-2xl sm:text-3xl font-serif text-[#18181B] tracking-tight leading-tight">
             {product.title_en}
           </h1>
-          {product.title_hi && (
-            <span className="text-sm sm:text-base font-sans text-[#71717A] font-medium">
-              {product.title_hi}
-            </span>
-          )}
         </div>
 
         {product.tagline && (
@@ -120,10 +112,10 @@ export function ProductConfiguration({
         {/* Live Dynamic Pricing & Stock Badge */}
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-baseline gap-2.5">
-            <span className="text-2xl sm:text-3xl font-bold text-[#18181B] tracking-tight">
+            <span className="text-2xl sm:text-3xl font-bold font-mono text-[#18181B] tracking-tight">
               ₹{price.toLocaleString("en-IN")}
             </span>
-            <span className="text-xs sm:text-sm text-[#71717A] line-through font-normal">
+            <span className="text-xs sm:text-sm text-[#71717A] line-through font-normal font-mono">
               ₹{mrp.toLocaleString("en-IN")}
             </span>
             <span className="text-[10px] font-bold uppercase tracking-wider text-[#9A3412] bg-[#9A3412]/10 px-2 py-0.5 rounded-full">
@@ -150,14 +142,15 @@ export function ProductConfiguration({
           </div>
         </div>
 
-        {/* Token Advance Note & Delivery Timeline */}
+        {/* Delivery Timeline Note */}
         <div className="flex items-center justify-between gap-2 pt-1 text-[11px] font-medium text-[#71717A]">
-          <span className="text-[#9A3412] font-semibold">
-            Book today for ₹{tokenAmount} Token
+          <span className="text-[#9A3412] font-semibold flex items-center gap-1">
+            <Truck className="w-3.5 h-3.5" />
+            <span>Free Doorstep Delivery</span>
           </span>
           <span className="flex items-center gap-1">
             <Clock className="w-3 h-3 text-[#71717A]" />
-            <span>Estimated Delivery: {deliveryDays} Days</span>
+            <span>Estimated Dispatch: {deliveryDays} Days</span>
           </span>
         </div>
       </div>
@@ -215,7 +208,7 @@ export function ProductConfiguration({
             Proportions & Size
           </label>
           {hasDimensions && (
-            <span className="text-[11px] font-bold text-[#9A3412]">
+            <span className="text-[11px] font-bold text-[#9A3412] font-mono">
               H: {dims?.height || 78}&quot; × W: {dims?.width || 36}&quot; × D: {dims?.depth || 22}&quot;
             </span>
           )}
@@ -242,7 +235,7 @@ export function ProductConfiguration({
                 </span>
                 <span
                   className={cn(
-                    "text-[10px] mt-0.5",
+                    "text-[10px] mt-0.5 font-mono",
                     isSelected ? "text-white/70" : "text-[#71717A]"
                   )}
                 >
@@ -286,28 +279,47 @@ export function ProductConfiguration({
         </div>
       )}
 
-      {/* 6. Sticky Action Buttons */}
+      {/* 6. Cart & WhatsApp / Direct Call Actions */}
       <div className="flex flex-col gap-2.5 pt-2">
-        {/* Primary CTA */}
+        {/* Primary CTA: Add to Cart */}
         <TactileButton
           variant="primary"
-          onClick={onBookNow}
-          className="w-full min-h-[50px] shadow-lg flex items-center justify-center gap-2"
+          onClick={onAddToCart}
+          className="w-full min-h-[50px] shadow-lg flex items-center justify-center gap-2 cursor-pointer text-sm font-bold uppercase tracking-wider"
         >
-          <span>Reserve for ₹{tokenAmount} Token</span>
-          <ArrowRight className="w-4 h-4" />
+          {isAdded ? (
+            <>
+              <Check className="w-4 h-4 text-emerald-400 stroke-[3]" />
+              <span>Added to Cart ✓</span>
+            </>
+          ) : (
+            <>
+              <ShoppingBag className="w-4 h-4" />
+              <span>Add to Cart</span>
+            </>
+          )}
         </TactileButton>
 
-        {/* Secondary WhatsApp CTA */}
-        <a
-          href={waUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all duration-200 border border-emerald-600/20 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 shadow-xs cursor-pointer select-none touch-manipulation active:scale-[0.98]"
-        >
-          <MessageCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-          <span>Ask on WhatsApp</span>
-        </a>
+        {/* Secondary Inquiry CTAs: WhatsApp & Call */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <a
+            href={waUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all duration-200 border border-emerald-600/20 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 shadow-xs cursor-pointer select-none touch-manipulation active:scale-[0.98]"
+          >
+            <MessageCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>WhatsApp Inquiry</span>
+          </a>
+
+          <a
+            href={callUrl}
+            className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all duration-200 border border-[#18181B]/15 bg-white hover:bg-[#FAF8F5] text-[#18181B] shadow-xs cursor-pointer select-none touch-manipulation active:scale-[0.98]"
+          >
+            <Phone className="w-3.5 h-3.5 text-[#9A3412] shrink-0" />
+            <span>Call Directly</span>
+          </a>
+        </div>
 
         {/* Inspection Trust Guarantees */}
         <div className="grid grid-cols-2 gap-2 pt-1 text-center">

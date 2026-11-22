@@ -3,8 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, MessageCircle } from "lucide-react";
+import { Menu, X, MessageCircle, ShoppingBag } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCart } from "@/context/CartContext";
+import { useSiteSettings } from "@/context/SiteSettingsContext";
 
 interface PremiumHeaderProps {
   className?: string;
@@ -15,28 +17,25 @@ interface PremiumHeaderProps {
  * 
  * Editorial Sticky Navigation:
  * - Frosted glass effect with Warm Alabaster canvas tint
- * - Mobile: Hamburger menu, center luxury typography, language toggle & WhatsApp
- * - Desktop: Brand on left, animated hover links in center, action button & WhatsApp on right
+ * - Mobile: Hamburger menu, center luxury typography, cart trigger & WhatsApp
+ * - Desktop: Brand on left, animated hover links in center, cart & WhatsApp on right
  */
 export function PremiumHeader({ className }: PremiumHeaderProps) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [language, setLanguage] = useState<"ENG" | "HI">("ENG");
+  const { totalItems, openCart } = useCart();
+  const { whatsappUrl } = useSiteSettings();
 
   // Completely hide header in admin panel
   if (pathname?.startsWith("/admin")) {
     return null;
   }
 
-  const toggleLanguage = () => {
-    setLanguage((prev) => (prev === "ENG" ? "HI" : "ENG"));
-  };
-
   const navLinks = [
-    { label: language === "ENG" ? "Collections" : "कलेक्शन", href: "/categories" },
-    { label: language === "ENG" ? "Design by Color" : "रंग चयन", href: "/#design-by-color" },
-    { label: language === "ENG" ? "Lookbook" : "स्थान", href: "/#spaces" },
-    { label: language === "ENG" ? "Admin Engine" : "व्यवस्थापक", href: "/admin/products/new" },
+    { label: "Collections", href: "/categories" },
+    { label: "Client Work", href: "/reviews" },
+    { label: "Design by Color", href: "/#design-by-color" },
+    { label: "Lookbook", href: "/#spaces" },
   ];
 
   return (
@@ -74,21 +73,26 @@ export function PremiumHeader({ className }: PremiumHeaderProps) {
             ))}
           </nav>
 
-          {/* Right: Language Toggle, WhatsApp Icon, and Book Store Visit Button */}
-          <div className="flex items-center gap-4 lg:gap-5">
-            {/* Language Toggle */}
+          {/* Right: Cart Trigger, WhatsApp Icon, and Book Store Visit Button */}
+          <div className="flex items-center gap-3.5 lg:gap-4">
+            {/* Cart Trigger with live badge */}
             <button
               type="button"
-              onClick={toggleLanguage}
-              aria-label="Toggle language"
-              className="text-xs font-semibold tracking-wider px-2.5 py-1 rounded-md text-[#18181B]/75 hover:text-[#18181B] border border-[#18181B]/15 hover:border-[#18181B]/35 transition-all cursor-pointer"
+              onClick={openCart}
+              aria-label={`Open Cart (${totalItems} items)`}
+              className="relative w-9 h-9 rounded-full flex items-center justify-center text-[#18181B]/80 hover:text-[#18181B] hover:bg-[#18181B]/5 transition-colors cursor-pointer"
             >
-              {language === "ENG" ? "ENG | हिं" : "हिं | ENG"}
+              <ShoppingBag className="w-4 h-4" />
+              {totalItems > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[#9A3412] text-white text-[10px] font-bold flex items-center justify-center shadow-xs">
+                  {totalItems}
+                </span>
+              )}
             </button>
 
             {/* Subtle WhatsApp Icon */}
             <a
-              href="https://wa.me/919876543210?text=Namaste!%20I%20would%20like%20to%20learn%20more%20about%20Green%20Steel%20Furniture."
+              href={whatsappUrl("Namaste! I would like to learn more about Green Steel Furniture.")}
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Contact on WhatsApp"
@@ -131,19 +135,25 @@ export function PremiumHeader({ className }: PremiumHeaderProps) {
             </span>
           </Link>
 
-          {/* Right: Language toggle and subtle WhatsApp icon */}
+          {/* Right: Cart Trigger and WhatsApp icon */}
           <div className="flex items-center gap-1.5 -mr-1">
+            {/* Mobile Cart Trigger */}
             <button
               type="button"
-              onClick={toggleLanguage}
-              aria-label="Toggle language"
-              className="text-[11px] font-semibold px-2 py-1 rounded text-[#18181B]/80 border border-[#18181B]/15"
+              onClick={openCart}
+              aria-label={`Open Cart (${totalItems} items)`}
+              className="relative w-9 h-9 flex items-center justify-center text-[#18181B] cursor-pointer"
             >
-              {language === "ENG" ? "हिं" : "ENG"}
+              <ShoppingBag className="w-4 h-4" />
+              {totalItems > 0 && (
+                <span className="absolute top-1 right-1 min-w-[15px] h-[15px] px-0.5 rounded-full bg-[#9A3412] text-white text-[9px] font-bold flex items-center justify-center shadow-xs">
+                  {totalItems}
+                </span>
+              )}
             </button>
 
             <a
-              href="https://wa.me/919876543210?text=Namaste!%20I%20would%20like%20to%20learn%20more%20about%20Green%20Steel%20Furniture."
+              href={whatsappUrl("Namaste! I would like to learn more about Green Steel Furniture.")}
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Contact on WhatsApp"

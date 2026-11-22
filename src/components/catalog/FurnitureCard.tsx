@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ShieldCheck, Check, Sparkles, PhoneCall } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Product, MediaVariant } from "@/types/product";
+import { useSiteSettings } from "@/context/SiteSettingsContext";
 
 interface FurnitureCardProps {
   product: Product;
@@ -23,6 +24,7 @@ interface FurnitureCardProps {
  * - Soft contrasting background (Warm Ivory bg-[#F3EFE6], never pure white)
  */
 export function FurnitureCard({ product, onBookNow, className }: FurnitureCardProps) {
+  const { whatsappUrl } = useSiteSettings();
   const { name, tagline, price, mrp, media, attributes } = product;
 
   // View state: 'outside' (Bahar) vs 'inside' (Andar)
@@ -54,10 +56,8 @@ export function FurnitureCard({ product, onBookNow, className }: FurnitureCardPr
       onBookNow(product, selectedVariant);
     } else {
       // Default direct booking action
-      const message = encodeURIComponent(
-        `Namaste! I want to book ${product.name} (${selectedVariant.name}) for ₹${price.toLocaleString("en-IN")}. Please send details.`
-      );
-      window.open(`https://wa.me/919876543210?text=${message}`, "_blank");
+      const message = `Namaste! I want to inquire about ${product.name} (${selectedVariant.name}) for ₹${price.toLocaleString("en-IN")}. Please send details.`;
+      window.open(whatsappUrl(message), "_blank");
     }
   };
 
@@ -232,14 +232,14 @@ export function FurnitureCard({ product, onBookNow, className }: FurnitureCardPr
             </span>
           </div>
 
-          {/* Full-width Amber "Book Now" Button (Min 44x44px touch target) */}
+          {/* Full-width Amber "Add to Cart / WhatsApp" Button (Min 44x44px touch target) */}
           <button
             type="button"
             onClick={handleBookClick}
             className="w-full min-h-[48px] px-4 py-3 rounded-xl font-bold text-white bg-[#D97706] hover:bg-[#F59E0B] shadow-md shadow-amber-900/20 active:scale-[0.98] transition-all duration-150 text-sm sm:text-base flex items-center justify-center gap-2 cursor-pointer touch-manipulation focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D97706]"
           >
             <PhoneCall className="w-4 h-4 shrink-0" aria-hidden="true" />
-            <span>Book Now • Pay on Delivery</span>
+            <span>Add to Cart • Direct Order</span>
           </button>
         </div>
       </div>
