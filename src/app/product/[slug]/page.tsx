@@ -26,6 +26,11 @@ export async function generateMetadata({
   return {
     title: `${product.title_en} | Green Steel Furniture`,
     description: product.tagline,
+    alternates: {
+      canonical: product.category?.slug
+        ? `/categories/${product.category.slug}/product/${product.slug}`
+        : `/product/${product.slug}`,
+    },
     openGraph: {
       title: `${product.title_en} — Green Steel Furniture`,
       description: product.tagline,

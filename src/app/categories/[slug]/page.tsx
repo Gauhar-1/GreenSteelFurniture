@@ -29,6 +29,9 @@ export async function generateMetadata({
   return {
     title: `${category.name} | Green Steel Furniture`,
     description: category.tagline,
+    alternates: {
+      canonical: `/categories/${slug}`,
+    },
     openGraph: {
       title: `${category.name} | Green Steel Furniture`,
       description: category.tagline,

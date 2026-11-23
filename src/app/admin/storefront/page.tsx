@@ -4,6 +4,7 @@ import { StorefrontVisualEditor } from "@/components/admin/StorefrontVisualEdito
 import { CategoryService } from "@/services/CategoryService";
 import { ProductService } from "@/services/ProductService";
 import { ReviewService } from "@/services/ReviewService";
+import { CANONICAL_SECTION_ORDER } from "@/services/StorefrontService";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { LocalDataStore } from "@/services/LocalDataStore";
 
@@ -34,9 +35,12 @@ export default async function AdminStorefrontPage() {
 
       if (!error && data) {
         initialSections = data.sort((a, b) => {
-          const orderA = (a.content?.display_order as number) ?? a.display_order ?? 0;
-          const orderB = (b.content?.display_order as number) ?? b.display_order ?? 0;
-          return orderA - orderB;
+          const defaultA = CANONICAL_SECTION_ORDER[a.section_key] ?? 99;
+          const defaultB = CANONICAL_SECTION_ORDER[b.section_key] ?? 99;
+          const orderA = typeof a.display_order === "number" ? a.display_order : ((a.content?.display_order as number) ?? defaultA);
+          const orderB = typeof b.display_order === "number" ? b.display_order : ((b.content?.display_order as number) ?? defaultB);
+          if (orderA !== orderB) return orderA - orderB;
+          return defaultA - defaultB;
         });
       }
     } else {

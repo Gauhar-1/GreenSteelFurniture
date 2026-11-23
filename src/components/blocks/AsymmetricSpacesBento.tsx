@@ -70,7 +70,7 @@ export function AsymmetricSpacesBento({ data, className }: AsymmetricSpacesBento
               key={card.id}
               href={card.href || "/categories"}
               className={cn(
-                "group relative w-full overflow-hidden rounded-2xl bg-[#EDE9E1] shadow-xs active:scale-[0.99] transition-all duration-300 block",
+                "group relative w-full overflow-hidden rounded-2xl bg-[#EDE9E1] border border-[#18181B]/10 hover:border-[#18181B]/30 hover:shadow-xl active:scale-[0.99] transition-all duration-300 block",
                 spanClass
               )}
             >
@@ -87,20 +87,22 @@ export function AsymmetricSpacesBento({ data, className }: AsymmetricSpacesBento
                 <div className="absolute inset-0 bg-gradient-to-br from-[#27272A] to-[#18181B]" />
               )}
 
-              {/* Subtle Dark Vignette in Bottom Half for Crisp Legibility */}
+              {/* Multi-Stop Dark Scrim for Razor-Sharp Typography Over Bright Chrome */}
               <div 
-                className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent pointer-events-none" 
+                className="absolute inset-0 bg-gradient-to-t from-[#121214]/90 via-[#121214]/35 to-transparent pointer-events-none" 
                 aria-hidden="true" 
               />
 
-              {/* Bottom-Left Minimal Typography */}
+              {/* Bottom-Left Minimal Typography with Subtle Hover Lift */}
               <div className="absolute bottom-6 left-6 z-10 text-left pr-6 transition-transform duration-300 group-hover:-translate-y-1">
-                <h3 className="text-xl sm:text-2xl font-medium text-white tracking-tight leading-snug">
+                <h3 className="text-xl sm:text-2xl font-medium text-white tracking-tight leading-snug drop-shadow-sm">
                   {card.title}
                 </h3>
-                <p className="text-xs sm:text-sm text-white/80 font-normal mt-1 tracking-wide">
-                  {card.subtitle}
-                </p>
+                {card.subtitle && (
+                  <p className="text-xs sm:text-sm text-white/80 font-normal mt-1 tracking-wide">
+                    {card.subtitle}
+                  </p>
+                )}
               </div>
             </Link>
           );

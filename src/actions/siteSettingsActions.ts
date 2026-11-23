@@ -6,6 +6,7 @@ import { createClient as createServerSupabaseClient } from "@/utils/supabase/ser
 import { LocalDataStore } from "@/services/LocalDataStore";
 import { verifyAdminSession } from "@/actions/authActions";
 import type { ServerActionResult } from "@/actions/adminActions";
+import { sanitizeErrorMessage } from "@/lib/errorSanitizer";
 
 function isSupabaseConfigured(): boolean {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -61,7 +62,7 @@ export async function updateSiteSettingsAction(
         console.error("[updateSiteSettingsAction] Supabase error:", error);
         return {
           success: false,
-          message: `Failed to update site settings: ${error.message}`,
+          message: sanitizeErrorMessage(error.message, "Failed to update site settings. Please try again."),
         };
       }
 
@@ -88,7 +89,7 @@ export async function updateSiteSettingsAction(
     console.error("[updateSiteSettingsAction] Exception:", err);
     return {
       success: false,
-      message: err instanceof Error ? err.message : "Internal error updating site settings.",
+      message: sanitizeErrorMessage(err, "Internal error updating site settings."),
     };
   }
 }

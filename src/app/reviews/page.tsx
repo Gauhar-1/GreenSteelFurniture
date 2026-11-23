@@ -9,6 +9,9 @@ export const metadata: Metadata = {
   title: "Client Work & Commissioned Projects | Green Steel Furniture",
   description:
     "Explore verified steel furniture installations for private homeowners and commercial spaces across Uttar Pradesh & Bihar. Zero termite risk, heavy-gauge steel craftsmanship.",
+  alternates: {
+    canonical: "/reviews",
+  },
   openGraph: {
     title: "Client Work & Commissioned Projects | Green Steel Furniture",
     description:

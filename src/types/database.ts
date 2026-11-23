@@ -234,6 +234,9 @@ export interface HeroHotspot {
   product_slug: string;
   product_id?: string;
   price: number;
+  kind?: "product" | "craft";
+  detail?: string;
+  imageUrl?: string;
 }
 
 export interface HeroShowcaseContent {
@@ -271,6 +274,9 @@ export interface WallColorItem {
 
 export interface WallColorMatcherContent {
   combinations: WallColorItem[];
+  sectionTitle?: string;
+  sectionSubtitle?: string;
+  showDurabilityStrip?: boolean;
 }
 
 /**

@@ -10,6 +10,7 @@ import { createClient as createServerSupabaseClient } from "@/utils/supabase/ser
 import { LocalDataStore } from "@/services/LocalDataStore";
 import { verifyAdminSession } from "@/actions/authActions";
 import type { ServerActionResult } from "@/actions/adminActions";
+import { sanitizeErrorMessage } from "@/lib/errorSanitizer";
 
 function isSupabaseConfigured(): boolean {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -58,7 +59,8 @@ export async function saveReviewAction(
           .eq("id", validated.id);
 
         if (error) {
-          return { success: false, message: `Failed to update review: ${error.message}` };
+          console.error("[saveReviewAction] Supabase update error:", error);
+          return { success: false, message: sanitizeErrorMessage(error.message, "Failed to update review. Please try again.") };
         }
       } else {
         const { data, error } = await supabase
@@ -68,7 +70,8 @@ export async function saveReviewAction(
           .single();
 
         if (error || !data) {
-          return { success: false, message: `Failed to create review: ${error?.message}` };
+          console.error("[saveReviewAction] Supabase insert error:", error);
+          return { success: false, message: sanitizeErrorMessage(error?.message, "Failed to create review. Please try again.") };
         }
         validated.id = data.id;
       }
@@ -130,7 +133,8 @@ export async function deleteReviewAction(
         .eq("id", id);
 
       if (error) {
-        return { success: false, message: `Failed to delete review: ${error.message}` };
+        console.error("[deleteReviewAction] Supabase error:", error);
+        return { success: false, message: sanitizeErrorMessage(error.message, "Failed to delete review. Please try again.") };
       }
     } else {
       LocalDataStore.deleteReview(id);
@@ -148,7 +152,7 @@ export async function deleteReviewAction(
     console.error("[deleteReviewAction] Exception:", err);
     return {
       success: false,
-      message: err instanceof Error ? err.message : "Internal error deleting review.",
+      message: sanitizeErrorMessage(err, "Internal error deleting review."),
     };
   }
 }
@@ -174,7 +178,8 @@ export async function toggleReviewFeaturedAction(
         .eq("id", id);
 
       if (error) {
-        return { success: false, message: error.message };
+        console.error("[toggleReviewFeaturedAction] Supabase error:", error);
+        return { success: false, message: sanitizeErrorMessage(error.message, "Failed to update featured status.") };
       }
     } else {
       const reviews = LocalDataStore.getReviews();
@@ -193,7 +198,7 @@ export async function toggleReviewFeaturedAction(
   } catch (err: unknown) {
     return {
       success: false,
-      message: err instanceof Error ? err.message : "Failed to toggle featured status.",
+      message: sanitizeErrorMessage(err, "Failed to toggle featured status."),
     };
   }
 }
@@ -219,7 +224,8 @@ export async function toggleReviewActiveAction(
         .eq("id", id);
 
       if (error) {
-        return { success: false, message: error.message };
+        console.error("[toggleReviewActiveAction] Supabase error:", error);
+        return { success: false, message: sanitizeErrorMessage(error.message, "Failed to update visibility status.") };
       }
     } else {
       const reviews = LocalDataStore.getReviews();
@@ -238,7 +244,7 @@ export async function toggleReviewActiveAction(
   } catch (err: unknown) {
     return {
       success: false,
-      message: err instanceof Error ? err.message : "Failed to toggle active status.",
+      message: sanitizeErrorMessage(err, "Failed to toggle active status."),
     };
   }
 }

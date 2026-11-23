@@ -1,6 +1,30 @@
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { CategoryService } from "@/services/CategoryService";
 import { LocalDataStore } from "@/services/LocalDataStore";
+
+/**
+ * Deterministic default order for all landing page sections.
+ * Guarantees a rhythmic Dark-Light alternating sequence:
+ * 0. Hero (Dark)
+ * 1. Spaces Bento (Light)
+ * 2. Style & Material Matcher + Steel vs Wood (Dark)
+ * 3. Complete the Look / Room Switcher (Light)
+ * 4. Materials & Craftsmanship Anatomy (Dark)
+ * 5. Client Reviews Showcase (Light)
+ */
+export const CANONICAL_SECTION_ORDER: Record<string, number> = {
+  hero_room_showcase: 0,
+  hero_showcase: 0,
+  asymmetric_spaces_bento: 1,
+  bento_spaces: 1,
+  wall_color_matcher: 2,
+  style_craft_matcher: 2,
+  interactive_room_lookbook: 3,
+  complete_the_look: 3,
+  visual_craftsmanship_split: 4,
+  craftsmanship_split: 4,
+  client_reviews_showcase: 5,
+};
 import type {
   PageBlock,
   RoomHotspot,
@@ -106,8 +130,9 @@ export class StorefrontService {
         const supabase = getSupabaseServerClient();
         const { data, error } = await supabase
           .from("storefront_sections")
-          .select("id, section_key, title_en, content, is_active, created_at")
+          .select("id, section_key, title_en, content, is_active, display_order, created_at")
           .eq("is_active", true)
+          .order("display_order", { ascending: true })
           .order("created_at", { ascending: true });
 
         if (error) {
@@ -117,12 +142,36 @@ export class StorefrontService {
 
         const rawData = (data as RawStorefrontRow[]) || [];
         rows = rawData.sort((a, b) => {
-          const orderA = (a.content?.display_order as number) ?? (a as any).display_order ?? 0;
-          const orderB = (b.content?.display_order as number) ?? (b as any).display_order ?? 0;
-          return orderA - orderB;
+          const defaultA = CANONICAL_SECTION_ORDER[a.section_key] ?? 99;
+          const defaultB = CANONICAL_SECTION_ORDER[b.section_key] ?? 99;
+
+          const orderA =
+            typeof (a as any).display_order === "number" && (a as any).display_order >= 0
+              ? (a as any).display_order
+              : typeof a.content?.display_order === "number" && a.content.display_order >= 0
+              ? (a.content.display_order as number)
+              : defaultA;
+
+          const orderB =
+            typeof (b as any).display_order === "number" && (b as any).display_order >= 0
+              ? (b as any).display_order
+              : typeof b.content?.display_order === "number" && b.content.display_order >= 0
+              ? (b.content.display_order as number)
+              : defaultB;
+
+          if (orderA !== orderB) return orderA - orderB;
+          return defaultA - defaultB;
         });
       } else {
-        rows = LocalDataStore.getAllStorefrontSections().filter((s) => s.is_active);
+        const localData = LocalDataStore.getAllStorefrontSections().filter((s) => s.is_active);
+        rows = localData.sort((a, b) => {
+          const defaultA = CANONICAL_SECTION_ORDER[a.section_key] ?? 99;
+          const defaultB = CANONICAL_SECTION_ORDER[b.section_key] ?? 99;
+          const orderA = (a.content?.display_order as number) ?? defaultA;
+          const orderB = (b.content?.display_order as number) ?? defaultB;
+          if (orderA !== orderB) return orderA - orderB;
+          return defaultA - defaultB;
+        });
       }
 
       if (!rows || rows.length === 0) {
@@ -296,9 +345,42 @@ export class StorefrontService {
           const hydratedHotspots: RoomHotspot[] = [];
 
           for (const raw of rawHotspots) {
+            const kind = raw.kind === "craft" ? "craft" : "product";
+
+            // CRITICAL: Preserve craft callouts even without product_id
+            if (kind === "craft") {
+              hydratedHotspots.push({
+                id: raw.id || `pin-craft-${Math.random().toString(36).substring(2, 7)}`,
+                kind: "craft",
+                title: raw.label || raw.title || "304-Grade Mirror Steel",
+                label: raw.label || raw.title || "304-Grade Mirror Steel",
+                detail:
+                  raw.detail ||
+                  raw.description ||
+                  "Argon-welded heavy-gauge tubing with lifetime rust resistance",
+                price: "",
+                href: "",
+                xPercent:
+                  typeof raw.xPercent === "number"
+                    ? raw.xPercent
+                    : typeof raw.x === "number"
+                    ? raw.x
+                    : 50,
+                yPercent:
+                  typeof raw.yPercent === "number"
+                    ? raw.yPercent
+                    : typeof raw.y === "number"
+                    ? raw.y
+                    : 50,
+              });
+              continue;
+            }
+
             const prodId = raw.product_id;
             const prodSlug = raw.product_slug;
-            const liveProd = (prodId && liveProductsMap.get(prodId)) || (prodSlug && liveProductsBySlug.get(prodSlug));
+            const liveProd =
+              (prodId && liveProductsMap.get(prodId)) ||
+              (prodSlug && liveProductsBySlug.get(prodSlug));
 
             // If a product was explicitly referenced:
             if (prodId || prodSlug) {
@@ -307,22 +389,49 @@ export class StorefrontService {
 
               hydratedHotspots.push({
                 id: raw.id || `pin-${liveProd.id}`,
+                kind: "product",
                 title: liveProd.title_en,
                 price: liveProd.formattedPrice,
                 href: liveProd.href,
-                xPercent: typeof raw.xPercent === "number" ? raw.xPercent : (typeof raw.x === "number" ? raw.x : 50),
-                yPercent: typeof raw.yPercent === "number" ? raw.yPercent : (typeof raw.y === "number" ? raw.y : 50),
+                imageUrl: liveProd.imageUrl,
+                xPercent:
+                  typeof raw.xPercent === "number"
+                    ? raw.xPercent
+                    : typeof raw.x === "number"
+                    ? raw.x
+                    : 50,
+                yPercent:
+                  typeof raw.yPercent === "number"
+                    ? raw.yPercent
+                    : typeof raw.y === "number"
+                    ? raw.y
+                    : 50,
                 product_id: liveProd.id,
                 product_slug: liveProd.slug,
               });
-            } else if (raw.title && raw.price) {
+            } else if (raw.title || raw.label) {
               hydratedHotspots.push({
-                id: raw.id || `pin-${Math.random()}`,
+                id: raw.id || `pin-${Math.random().toString(36).substring(2, 7)}`,
+                kind: "product",
                 title: raw.title || raw.label,
-                price: typeof raw.price === "number" ? `₹${Number(raw.price).toLocaleString("en-IN")}` : String(raw.price),
+                price:
+                  typeof raw.price === "number"
+                    ? `₹${Number(raw.price).toLocaleString("en-IN")}`
+                    : raw.price || "",
                 href: raw.href || "/categories",
-                xPercent: typeof raw.xPercent === "number" ? raw.xPercent : (typeof raw.x === "number" ? raw.x : 50),
-                yPercent: typeof raw.yPercent === "number" ? raw.yPercent : (typeof raw.y === "number" ? raw.y : 50),
+                imageUrl: raw.imageUrl || raw.image,
+                xPercent:
+                  typeof raw.xPercent === "number"
+                    ? raw.xPercent
+                    : typeof raw.x === "number"
+                    ? raw.x
+                    : 50,
+                yPercent:
+                  typeof raw.yPercent === "number"
+                    ? raw.yPercent
+                    : typeof raw.y === "number"
+                    ? raw.y
+                    : 50,
               });
             }
           }
@@ -411,6 +520,9 @@ export class StorefrontService {
             label: content.label || "Harmonious Living",
             title: content.title || row.title_en || "Design by Color",
             description: content.description,
+            sectionTitle: content.sectionTitle || content.section_title,
+            sectionSubtitle: content.sectionSubtitle || content.section_subtitle,
+            showDurabilityStrip: content.showDurabilityStrip ?? content.show_durability_strip ?? true,
             combinations,
           });
         }

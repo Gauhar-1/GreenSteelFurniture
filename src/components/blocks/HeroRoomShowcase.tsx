@@ -1,8 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Sparkles } from "lucide-react";
 import { RoomHotspots } from "@/components/blocks/RoomHotspots";
 import type { HeroRoomShowcaseBlockData } from "@/types/blocks";
+import { TactileButton } from "@/components/ui/TactileButton";
 
 interface HeroRoomShowcaseProps {
   data: HeroRoomShowcaseBlockData;
@@ -12,34 +13,37 @@ interface HeroRoomShowcaseProps {
 /**
  * HeroRoomShowcase — React Server Component
  * 
- * Editorial "Shop the Room" Hero:
- * - Natural, unobstructed sunlit photography (NO colored overlays).
- * - Interactive pulsing hotspots revealing floating product cards.
- * - Minimal, high-end editorial typography positioned strictly in bottom-left.
+ * Architectural Flagship Showcase Hero:
+ * - Obsidian framing (#121214) with edge-to-edge photography.
+ * - Multi-stop dark scrim preventing text washout from chrome highlights.
+ * - Dual-mode hotspots (product pins + craft spec callouts).
+ * - Editorial typography with champagne/emerald eyebrow pill and tactile CTA.
  */
 export function HeroRoomShowcase({ data, className }: HeroRoomShowcaseProps) {
   const { label, headline, imageUrl, imageAlt, cta, hotspots = [] } = data;
 
   if (!imageUrl || imageUrl.trim() === "") {
     return (
-      <section className={`w-full py-16 px-6 bg-[#FAF8F5] flex items-center justify-center text-center ${className || ""}`}>
-        <div className="p-8 rounded-2xl border border-black/10 bg-[#EDE9E1]/50 text-[#71717A] text-xs sm:text-sm font-medium">
+      <section className={`w-full py-16 px-6 bg-[#121214] text-[#FAF8F5] flex items-center justify-center text-center ${className || ""}`}>
+        <div className="p-8 rounded-2xl border border-white/10 bg-white/5 text-[#A1A1AA] text-xs sm:text-sm font-medium">
           Hero Room Showcase image not yet configured in Admin Studio.
         </div>
       </section>
     );
   }
 
+  const eyebrow = label || "PURE 304-GRADE STAINLESS STEEL · DIRECT FROM FACTORY";
+
   return (
     <section 
-      aria-label="Room Showcase Hero"
-      className={`relative w-full h-[80vh] sm:h-[84vh] md:h-[88vh] overflow-hidden bg-[#FAF8F5] select-none ${className || ""}`}
+      aria-label="Flagship Stainless Steel Showcase"
+      className={`relative w-full h-[82vh] sm:h-[86vh] md:h-[90vh] overflow-hidden bg-[#121214] text-[#FAF8F5] select-none ${className || ""}`}
     >
-      {/* 1. Natural Room Photography with Priority LCP (100% Unobstructed) */}
+      {/* 1. Natural Flagship Photography with Priority LCP */}
       <div className="absolute inset-0 z-0">
         <Image
           src={imageUrl}
-          alt={imageAlt || headline || "Architectural steel furniture room setting"}
+          alt={imageAlt || headline || "304-Grade Stainless Steel Architectural Furniture Showcase"}
           fill
           priority
           sizes="100vw"
@@ -47,35 +51,43 @@ export function HeroRoomShowcase({ data, className }: HeroRoomShowcaseProps) {
         />
       </div>
 
-      {/* 2. Interactive "Shop the Room" Pins */}
+      {/* 2. Dual-Mode Interactive Hotspot Pins */}
       <RoomHotspots hotspots={hotspots} />
 
-      {/* 3. Minimal Bottom-Left Vignette & Title Overlay */}
+      {/* 3. Multi-Stop Dark Scrim (Bottom & Left) for Text Legibility Over Chrome & Marble */}
       <div 
-        className="absolute inset-x-0 bottom-0 z-10 pt-28 pb-8 sm:pb-12 px-6 sm:px-12 bg-gradient-to-t from-black/75 via-black/35 to-transparent pointer-events-none"
+        className="absolute inset-0 z-10 bg-gradient-to-t from-[#121214]/95 via-[#121214]/40 to-transparent pointer-events-none"
+        aria-hidden="true"
+      />
+      <div 
+        className="absolute inset-y-0 left-0 w-full sm:w-2/3 z-10 bg-gradient-to-r from-[#121214]/70 via-[#121214]/20 to-transparent pointer-events-none"
         aria-hidden="true"
       />
 
-      <div className="absolute bottom-6 sm:bottom-12 left-6 sm:left-12 z-20 max-w-xl text-left pointer-events-auto">
-        {/* Uppercase Tracking-Widest Label */}
-        <span className="inline-block text-[11px] sm:text-xs font-semibold tracking-[0.25em] uppercase text-white/80 drop-shadow-sm mb-2 sm:mb-3">
-          {label}
-        </span>
+      {/* 4. Minimal Editorial Overlay */}
+      <div className="absolute bottom-6 sm:bottom-12 left-6 sm:left-12 right-6 sm:right-auto z-20 max-w-xl text-left pointer-events-auto">
+        {/* Eyebrow Pill */}
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[10px] sm:text-[11px] font-mono font-semibold tracking-[0.22em] uppercase text-emerald-300 bg-[#163826]/85 border border-emerald-500/25 backdrop-blur-md mb-3 sm:mb-4 shadow-sm">
+          <Sparkles className="w-3 h-3 text-emerald-400 shrink-0" />
+          <span>{eyebrow}</span>
+        </div>
 
-        {/* Clean Editorial Heading (Max 5-7 words) */}
+        {/* Editorial Headline */}
         <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-light text-white tracking-tight leading-[1.12] drop-shadow-md">
           {headline}
         </h1>
 
-        {/* Sleek White Pill Button */}
+        {/* Primary CTA */}
         {cta?.href && (
           <div className="mt-5 sm:mt-7">
-            <Link
-              href={cta.href}
-              className="inline-flex items-center gap-2.5 px-6 py-3.5 rounded-full text-xs sm:text-sm font-semibold text-[#18181B] bg-white hover:bg-white/90 shadow-xl transition-all duration-200 active:scale-95 min-h-[44px] touch-manipulation group"
-            >
-              <span>{cta.label || "Explore Collections"}</span>
-              <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
+            <Link href={cta.href} className="inline-block">
+              <TactileButton
+                variant="primary"
+                className="bg-[#FAF8F5] text-[#121214] hover:bg-white border-0 shadow-2xl px-6 py-3.5 text-xs sm:text-sm font-semibold uppercase tracking-wider group"
+              >
+                <span>{cta.label || "Explore Collections"}</span>
+                <ArrowRight className="w-4 h-4 ml-2 transition-transform duration-200 group-hover:translate-x-1" />
+              </TactileButton>
             </Link>
           </div>
         )}

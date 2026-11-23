@@ -107,8 +107,8 @@ export function StorefrontVisualEditor({
   const [displayOrders, setDisplayOrders] = useState<Record<string, number>>({
     hero: typeof heroInitial?.display_order === "number" ? heroInitial.display_order : 0,
     bento: typeof bentoInitial?.display_order === "number" ? bentoInitial.display_order : 1,
-    look: typeof lookInitial?.display_order === "number" ? lookInitial.display_order : 2,
-    wall: typeof wallInitial?.display_order === "number" ? wallInitial.display_order : 3,
+    wall: typeof wallInitial?.display_order === "number" ? wallInitial.display_order : 2,
+    look: typeof lookInitial?.display_order === "number" ? lookInitial.display_order : 3,
     split: typeof splitInitial?.display_order === "number" ? splitInitial.display_order : 4,
   });
 
@@ -135,10 +135,12 @@ export function StorefrontVisualEditor({
           id: h.id || `pin-${Date.now()}`,
           x: typeof h.xPercent === "number" ? h.xPercent : (typeof h.x === "number" ? h.x : 50),
           y: typeof h.yPercent === "number" ? h.yPercent : (typeof h.y === "number" ? h.y : 50),
-          label: h.title || h.label || "Product Pin",
+          label: h.label || h.title || "Product Pin",
           product_id: h.product_id,
           product_slug: h.product_slug || "",
           price: typeof h.price === "number" ? h.price : Number(String(h.price).replace(/[^0-9]/g, "") || 0),
+          kind: h.kind || (h.product_id ? "product" : "craft"),
+          detail: h.detail || "",
         }))
       : []
   );
@@ -186,14 +188,17 @@ export function StorefrontVisualEditor({
     return categories.filter((c) => Boolean(c.id && !selectedBentoCategoryIds.includes(c.id)));
   }, [categories, selectedBentoCategoryIds]);
 
-  // 3. WALL COLOR MATCHER STATE
+  // 3. WALL / STYLE & MATERIAL MATCHER STATE
   const wallContent = wallInitial?.content || {};
+  const [showDurabilityStrip, setShowDurabilityStrip] = useState<boolean>(
+    wallContent.showDurabilityStrip ?? wallContent.show_durability_strip ?? true
+  );
   const [wallColors, setWallColors] = useState<WallColorItem[]>(
     Array.isArray(wallContent.combinations) && wallContent.combinations.length > 0
       ? wallContent.combinations.map((w: any, idx: number) => ({
           id: w.id || `wall-${idx + 1}`,
-          wallName: w.wallName || "Wall Tone",
-          hex: w.hex || "#E5D9C5",
+          wallName: w.wallName || "Material Swatch",
+          hex: w.hex || "#27272A",
           advice: w.advice || "",
           image: w.image || "",
           href: w.ctaLink || w.href || "/categories",
@@ -254,10 +259,12 @@ export function StorefrontVisualEditor({
       id: `pin-${Date.now()}`,
       x,
       y,
-      label: defaultProd?.title_en || "New Product Pin",
+      label: defaultProd?.title_en || "304-Grade Mirror Steel",
       product_id: defaultProd?.id,
       product_slug: defaultProd?.slug || "architectural-piece",
       price: defaultProd ? Number(defaultProd.base_price) : 24999,
+      kind: defaultProd ? "product" : "craft",
+      detail: "Argon-welded heavy-gauge tubing with lifetime rust resistance",
     };
 
     setHotspots((prev) => [...prev, newPin]);
@@ -343,6 +350,9 @@ export function StorefrontVisualEditor({
               xPercent: h.x,
               yPercent: h.y,
               title: h.label,
+              label: h.label,
+              kind: h.kind || (h.product_id ? "product" : "craft"),
+              detail: h.detail,
               product_id: h.product_id,
               product_slug: h.product_slug,
               price: h.price,
@@ -392,6 +402,7 @@ export function StorefrontVisualEditor({
         await saveStorefrontSectionAction(
           "wall_color_matcher",
           {
+            showDurabilityStrip,
             combinations: wallColors.map((w) => ({
               id: w.id,
               wallName: w.wallName,
@@ -402,9 +413,9 @@ export function StorefrontVisualEditor({
               ctaText: "Shop Collections",
             })),
           },
-          "Design by Wall Color",
+          "Style & Material Matcher",
           activeStates.wall ?? true,
-          displayOrders.wall ?? 3
+          displayOrders.wall ?? 2
         );
       } else if (activeTab === "split") {
         await saveStorefrontSectionAction(
@@ -521,7 +532,7 @@ export function StorefrontVisualEditor({
               }`}
             >
               <Paintbrush className="w-3.5 h-3.5" />
-              <span>Wall Matcher</span>
+              <span>Style & Material Matcher</span>
             </button>
 
             <button
@@ -757,76 +768,162 @@ export function StorefrontVisualEditor({
                 );
               }
 
+              const isCraft = activePin.kind === "craft";
+
               return (
                 <div className="space-y-4">
-                  {/* Link Live Supabase Product */}
+                  {/* Segmented Mode Selector: Link Product vs Steel Spec Callout */}
                   <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#71717A] mb-1">
-                      Link Live Product (Supabase)
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#71717A] mb-1.5">
+                      Hotspot Mode
                     </label>
-                    <select
-                      value={activePin.product_id || ""}
-                      onChange={(e) => {
-                        const chosen = products.find((p) => p.id === e.target.value);
-                        if (chosen) {
+                    <div className="flex rounded-xl bg-[#FAF8F5] p-1 border border-[#18181B]/10">
+                      <button
+                        type="button"
+                        onClick={() => {
                           const updated = hotspots.map((p) =>
-                            p.id === activePin.id
-                              ? {
-                                  ...p,
-                                  product_id: chosen.id,
-                                  product_slug: chosen.slug,
-                                  label: chosen.title_en,
-                                  price: Number(chosen.base_price),
-                                }
-                              : p
+                            p.id === activePin.id ? { ...p, kind: "product" as const } : p
                           );
                           setHotspots(updated);
-                        }
-                      }}
-                      className="w-full px-3 py-2 rounded-xl border border-[#18181B]/15 text-xs font-medium text-[#18181B] bg-white"
-                    >
-                      <option value="">-- Custom / Select Live Product --</option>
-                      {products.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.title_en} (₹{Number(p.base_price).toLocaleString("en-IN")})
-                        </option>
-                      ))}
-                    </select>
+                        }}
+                        className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                          !isCraft
+                            ? "bg-white text-[#18181B] shadow-xs"
+                            : "text-[#71717A] hover:text-[#18181B]"
+                        }`}
+                      >
+                        Link Product
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated = hotspots.map((p) =>
+                            p.id === activePin.id ? { ...p, kind: "craft" as const } : p
+                          );
+                          setHotspots(updated);
+                        }}
+                        className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                          isCraft
+                            ? "bg-white text-[#18181B] shadow-xs"
+                            : "text-[#71717A] hover:text-[#18181B]"
+                        }`}
+                      >
+                        Steel Spec Callout
+                      </button>
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#71717A] mb-1">
-                      Pin Label
-                    </label>
-                    <input
-                      type="text"
-                      value={activePin.label}
-                      onChange={(e) => {
-                        const updated = hotspots.map((p) =>
-                          p.id === activePin.id ? { ...p, label: e.target.value } : p
-                        );
-                        setHotspots(updated);
-                      }}
-                      className="w-full px-3 py-2 rounded-xl border border-[#18181B]/15 text-xs font-semibold text-[#18181B]"
-                    />
-                  </div>
+                  {!isCraft ? (
+                    <>
+                      {/* Link Live Supabase Product */}
+                      <div>
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#71717A] mb-1">
+                          Link Live Product (Supabase)
+                        </label>
+                        <select
+                          value={activePin.product_id || ""}
+                          onChange={(e) => {
+                            const chosen = products.find((p) => p.id === e.target.value);
+                            if (chosen) {
+                              const updated = hotspots.map((p) =>
+                                p.id === activePin.id
+                                  ? {
+                                      ...p,
+                                      product_id: chosen.id,
+                                      product_slug: chosen.slug,
+                                      label: chosen.title_en,
+                                      price: Number(chosen.base_price),
+                                    }
+                                  : p
+                              );
+                              setHotspots(updated);
+                            }
+                          }}
+                          className="w-full px-3 py-2 rounded-xl border border-[#18181B]/15 text-xs font-medium text-[#18181B] bg-white"
+                        >
+                          <option value="">-- Custom / Select Live Product --</option>
+                          {products.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.title_en} (₹{Number(p.base_price).toLocaleString("en-IN")})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-                  <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#71717A] mb-1">
-                      Price Tag (₹)
-                    </label>
-                    <input
-                      type="number"
-                      value={activePin.price}
-                      onChange={(e) => {
-                        const updated = hotspots.map((p) =>
-                          p.id === activePin.id ? { ...p, price: Number(e.target.value) } : p
-                        );
-                        setHotspots(updated);
-                      }}
-                      className="w-full px-3 py-2 rounded-xl border border-[#18181B]/15 text-xs font-mono text-[#18181B]"
-                    />
-                  </div>
+                      <div>
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#71717A] mb-1">
+                          Pin Label
+                        </label>
+                        <input
+                          type="text"
+                          value={activePin.label}
+                          onChange={(e) => {
+                            const updated = hotspots.map((p) =>
+                              p.id === activePin.id ? { ...p, label: e.target.value } : p
+                            );
+                            setHotspots(updated);
+                          }}
+                          className="w-full px-3 py-2 rounded-xl border border-[#18181B]/15 text-xs font-semibold text-[#18181B]"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#71717A] mb-1">
+                          Price Tag (₹)
+                        </label>
+                        <input
+                          type="number"
+                          value={activePin.price}
+                          onChange={(e) => {
+                            const updated = hotspots.map((p) =>
+                              p.id === activePin.id ? { ...p, price: Number(e.target.value) } : p
+                            );
+                            setHotspots(updated);
+                          }}
+                          className="w-full px-3 py-2 rounded-xl border border-[#18181B]/15 text-xs font-mono text-[#18181B]"
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {/* Spec Callout Inputs */}
+                      <div>
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#71717A] mb-1">
+                          Spec Title (e.g. 304-Grade Mirror Steel)
+                        </label>
+                        <input
+                          type="text"
+                          value={activePin.label}
+                          placeholder="e.g. Heavy-Duty Coil Springs"
+                          onChange={(e) => {
+                            const updated = hotspots.map((p) =>
+                              p.id === activePin.id ? { ...p, label: e.target.value } : p
+                            );
+                            setHotspots(updated);
+                          }}
+                          className="w-full px-3 py-2 rounded-xl border border-[#18181B]/15 text-xs font-semibold text-[#18181B]"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#71717A] mb-1">
+                          Short Detail Note
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={activePin.detail || ""}
+                          placeholder="e.g. Tested for 300kg+ smooth swing load"
+                          onChange={(e) => {
+                            const updated = hotspots.map((p) =>
+                              p.id === activePin.id ? { ...p, detail: e.target.value } : p
+                            );
+                            setHotspots(updated);
+                          }}
+                          className="w-full px-3 py-2 rounded-xl border border-[#18181B]/15 text-xs font-medium text-[#18181B]"
+                        />
+                      </div>
+                    </>
+                  )}
 
                   <div className="grid grid-cols-2 gap-2 text-xs font-mono text-[#71717A]">
                     <div className="p-2 rounded-lg bg-[#FAF8F5] border border-[#18181B]/10">
@@ -1081,7 +1178,7 @@ export function StorefrontVisualEditor({
           availableProducts={selectableProducts}
           initialData={lookInitial?.content as any}
           isActive={activeStates.look ?? true}
-          displayOrder={displayOrders.look ?? 2}
+          displayOrder={displayOrders.look ?? 3}
           onSaveSuccess={() => {
             setToast({
               success: true,
@@ -1092,39 +1189,52 @@ export function StorefrontVisualEditor({
       )}
 
       {/* ============================================================ */}
-      {/* 4. WALL COLOR MATCHER                                        */}
+      {/* 4. STYLE & MATERIAL MATCHER                                  */}
       {/* ============================================================ */}
       {activeTab === "wall" && (
         <div className="bg-white p-6 rounded-3xl border border-[#18181B]/10 shadow-xs space-y-6">
-          <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#18181B]/10">
             <div>
               <span className="text-xs font-bold uppercase tracking-wider text-[#18181B]">
-                Design by Wall Color Combinations
+                Style & Material Matcher
               </span>
               <p className="text-xs text-[#71717A]">
-                Customize the wall paint tones, designer advice text, and room preview renderings.
+                Customize the material swatches, architectural styling notes, and signature pairing photos.
               </p>
             </div>
 
-            {/* Add Combination Button */}
-            <button
-              type="button"
-              onClick={() => {
-                const newOption: WallColorItem = {
-                  id: `wall-${Date.now()}`,
-                  wallName: "New Wall Tone",
-                  hex: "#EDE9E1",
-                  advice: "Pair with pure steel furniture for refined contrast.",
-                  image: "/color-beige-navy.png",
-                  href: "/categories",
-                };
-                setWallColors([...wallColors, newOption]);
-              }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#18181B] text-white text-xs font-bold uppercase tracking-wider hover:bg-[#18181B]/90 cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add Wall Tone</span>
-            </button>
+            <div className="flex items-center gap-4">
+              {/* Toggle switch for Durability Strip */}
+              <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-[#18181B]">
+                <input
+                  type="checkbox"
+                  checked={showDurabilityStrip}
+                  onChange={(e) => setShowDurabilityStrip(e.target.checked)}
+                  className="rounded border-[#18181B]/20 text-[#163826] focus:ring-[#163826] h-4 w-4"
+                />
+                <span>Show Durability Proof Strip</span>
+              </label>
+
+              {/* Add Combination Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  const newOption: WallColorItem = {
+                    id: `wall-${Date.now()}`,
+                    wallName: "Charcoal Tufted Velvet",
+                    hex: "#27272A",
+                    advice: "Deep tufted velvet highlights mirror-polished tubular steel reflections.",
+                    image: "/color-beige-navy.png",
+                    href: "/categories",
+                  };
+                  setWallColors([...wallColors, newOption]);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#18181B] text-white text-xs font-bold uppercase tracking-wider hover:bg-[#18181B]/90 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Material Swatch</span>
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -1209,7 +1319,7 @@ export function StorefrontVisualEditor({
 
                 <div>
                   <label className="block text-[10px] font-bold uppercase text-[#71717A] mb-1">
-                    Designer Advice
+                    Styling / Architectural Note
                   </label>
                   <textarea
                     rows={2}
@@ -1239,7 +1349,7 @@ export function StorefrontVisualEditor({
                 Visual Craftsmanship Split (&quot;Show, Don&apos;t Tell&quot;)
               </span>
               <p className="text-xs text-[#71717A]">
-                Two-column macro photography highlighting tactile steel surfaces and precision mechanisms.
+                Two-column macro photography highlighting mirror-polished 304 steel, spherical finials, argon welds, and laser-cut motifs.
               </p>
             </div>
           </div>

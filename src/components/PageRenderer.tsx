@@ -35,6 +35,7 @@ export function PageRenderer({ blocks }: PageRendererProps) {
             return <AsymmetricSpacesBento key={block.id} data={block} />;
 
           case "wall_color_matcher":
+          case "style_craft_matcher":
             return <WallColorMatcher key={block.id} data={block} />;
 
           case "interactive_room_lookbook":

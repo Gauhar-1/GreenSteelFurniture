@@ -34,6 +34,9 @@ export async function generateMetadata({
   return {
     title: `${dbProduct.title_en} | ${categoryName} | Green Steel Furniture`,
     description: dbProduct.tagline,
+    alternates: {
+      canonical: `/categories/${categorySlug}/product/${productSlug}`,
+    },
     openGraph: {
       title: `${dbProduct.title_en} — Green Steel Furniture`,
       description: dbProduct.tagline,
@@ -87,14 +90,68 @@ export default async function HierarchicalProductPage({
     ? allCategories.find((c) => c.id === dbProduct.sub_category_id)
     : null;
 
+  // JSON-LD Product Schema for Google Search Rich Results
+  const defaultFinish =
+    dbProduct.finishes.find((f) => f.is_default) || dbProduct.finishes[0];
+  const rawImage =
+    defaultFinish?.media?.lifestyle ||
+    defaultFinish?.media?.front ||
+    "/og-banner.png";
+
+  const prices = dbProduct.sizes
+    .map((s) => Number(s.price))
+    .filter((p) => !isNaN(p) && p > 0);
+  const lowPrice = prices.length > 0 ? Math.min(...prices) : dbProduct.base_price;
+  const highPrice = prices.length > 0 ? Math.max(...prices) : dbProduct.base_price;
+
+  const productJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: dbProduct.title_en,
+    description: dbProduct.tagline,
+    image: rawImage,
+    brand: {
+      "@type": "Brand",
+      name: "Green Steel Furniture",
+    },
+    sku: dbProduct.slug,
+    category: dbCategory?.name_en || dbProduct.category?.name_en || "Steel Furniture",
+    offers: {
+      "@type": prices.length > 1 ? "AggregateOffer" : "Offer",
+      priceCurrency: "INR",
+      ...(prices.length > 1
+        ? {
+            lowPrice,
+            highPrice,
+            offerCount: dbProduct.sizes.length,
+          }
+        : {
+            price: lowPrice,
+          }),
+      availability: "https://schema.org/InStock",
+      seller: {
+        "@type": "Organization",
+        name: "Green Steel Furniture",
+      },
+    },
+  };
+
   return (
-    <ProductDetailView
-      product={dbProduct}
-      categorySlug={categorySlug}
-      categoryName={dbCategory?.name_en || dbProduct.category?.name_en}
-      subCategoryName={subCategory?.name_en}
-      initialFinishId={resolvedSearchParams.finish}
-      initialSizeId={resolvedSearchParams.size}
-    />
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(productJsonLd).replace(/</g, "\\u003c"),
+        }}
+      />
+      <ProductDetailView
+        product={dbProduct}
+        categorySlug={categorySlug}
+        categoryName={dbCategory?.name_en || dbProduct.category?.name_en}
+        subCategoryName={subCategory?.name_en}
+        initialFinishId={resolvedSearchParams.finish}
+        initialSizeId={resolvedSearchParams.size}
+      />
+    </>
   );
 }

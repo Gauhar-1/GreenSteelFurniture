@@ -18,6 +18,10 @@ export const RoomHotspotSchema = z.object({
   yPercent: z.number(),
   product_id: z.string().optional(),
   product_slug: z.string().optional(),
+  imageUrl: z.string().optional(),
+  kind: z.enum(["product", "craft"]).optional().default("product"),
+  label: z.string().optional(),
+  detail: z.string().optional(),
 });
 
 export type RoomHotspot = z.infer<typeof RoomHotspotSchema>;
@@ -154,10 +158,13 @@ export type WallColorOption = z.infer<typeof WallColorOptionSchema>;
 
 export const WallColorMatcherBlockSchema = z.object({
   id: z.string(),
-  type: z.literal("wall_color_matcher"),
+  type: z.literal("wall_color_matcher").or(z.literal("style_craft_matcher")),
   label: z.string().optional(),
   title: z.string().optional(),
   description: z.string().optional(),
+  sectionTitle: z.string().optional(),
+  sectionSubtitle: z.string().optional(),
+  showDurabilityStrip: z.boolean().optional().default(true),
   combinations: z.array(WallColorOptionSchema).optional(),
 });
 

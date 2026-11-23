@@ -8,6 +8,9 @@ export const metadata: Metadata = {
   title: "Collections & Departments | Green Steel Furniture",
   description:
     "Explore pure steel furniture collections: Bedroom, Living, Dining, and Workspace. 100% rust-proof, precision powder-coated architectural steel.",
+  alternates: {
+    canonical: "/categories",
+  },
   openGraph: {
     title: "Collections & Departments | Green Steel Furniture",
     description:

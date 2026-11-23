@@ -14,6 +14,8 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { createClient as createServerSupabaseClient } from "@/utils/supabase/server";
 import { LocalDataStore } from "@/services/LocalDataStore";
 import { verifyAdminSession } from "@/actions/authActions";
+import { sanitizeErrorMessage } from "@/lib/errorSanitizer";
+import { CANONICAL_SECTION_ORDER } from "@/services/StorefrontService";
 
 export interface ServerActionResult<T = unknown> {
   success: boolean;
@@ -313,6 +315,13 @@ export async function saveStorefrontSectionAction(
       };
     }
 
+    // Resolve display_order deterministically so updating one section preserves its fixed position
+    const canonicalOrder = CANONICAL_SECTION_ORDER[sectionKey] ?? 0;
+    const finalOrder =
+      typeof displayOrder === "number" && displayOrder >= 0
+        ? displayOrder
+        : canonicalOrder;
+
     if (isSupabaseConfigured()) {
       const supabase = await createServerSupabaseClient();
       const { error } = await supabase.from("storefront_sections").upsert(
@@ -321,8 +330,9 @@ export async function saveStorefrontSectionAction(
           title_en,
           content: {
             ...content,
-            display_order: displayOrder,
+            display_order: finalOrder,
           },
+          display_order: finalOrder,
           is_active: isActive,
           updated_at: new Date().toISOString(),
         },
@@ -334,7 +344,7 @@ export async function saveStorefrontSectionAction(
       LocalDataStore.saveStorefrontSection(sectionKey, {
         content: {
           ...content,
-          display_order: displayOrder,
+          display_order: finalOrder,
         },
         title_en,
         is_active: isActive,
@@ -357,7 +367,7 @@ export async function saveStorefrontSectionAction(
   } catch (err) {
     return {
       success: false,
-      message: err instanceof Error ? err.message : "Failed to update storefront section.",
+      message: sanitizeErrorMessage(err, "Failed to update storefront section."),
     };
   }
 }
@@ -408,7 +418,7 @@ export async function toggleStorefrontSectionActiveAction(
   } catch (err) {
     return {
       success: false,
-      message: err instanceof Error ? err.message : "Failed to toggle section visibility.",
+      message: sanitizeErrorMessage(err, "Failed to toggle section visibility."),
     };
   }
 }
@@ -518,7 +528,7 @@ export async function saveCategoryAction(
   } catch (err) {
     return {
       success: false,
-      message: err instanceof Error ? err.message : "Failed to save category.",
+      message: sanitizeErrorMessage(err, "Failed to save category."),
     };
   }
 }
@@ -568,7 +578,7 @@ export async function deleteCategoryAction(
   } catch (err) {
     return {
       success: false,
-      message: err instanceof Error ? err.message : "Failed to delete category.",
+      message: sanitizeErrorMessage(err, "Failed to delete category."),
     };
   }
 }
