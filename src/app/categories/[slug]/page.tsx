@@ -41,16 +41,24 @@ export async function generateMetadata({
       description: category.tagline,
       images: [
         {
-          url: "/og-banner.png",
+          url: "/og-banner.jpg",
           width: 1200,
           height: 630,
           alt: "Green Steel Furniture",
+          type: "image/jpeg",
+        },
+        {
+          url: "/og-banner.png",
+          width: 1080,
+          height: 609,
+          alt: "Green Steel Furniture",
+          type: "image/png",
         },
       ],
     },
     twitter: {
       card: "summary_large_image",
-      images: ["/og-banner.png"],
+      images: ["/og-banner.jpg"],
     },
   };
 }
