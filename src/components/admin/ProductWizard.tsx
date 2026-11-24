@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -26,6 +26,7 @@ import {
   Sparkles,
   Loader2,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   type BlueprintType,
   type ProductWizardFormData,
@@ -33,6 +34,12 @@ import {
   type ProductSize,
   type Category,
 } from "@/types/database";
+import {
+  BLUEPRINT_TYPES,
+  BLUEPRINT_LABELS,
+  resolveBlueprintType,
+} from "@/lib/blueprintUtils";
+import { BlueprintScaleChart } from "@/components/pdp/BlueprintScaleChart";
 import { type ProductCatalogItem } from "@/services/ProductService";
 import { saveProductWizardAction } from "@/actions/adminActions";
 import { StorageService } from "@/services/StorageService";
@@ -83,6 +90,8 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [selectedFinishIndex, setSelectedFinishIndex] = useState(0);
   const [highlightInput, setHighlightInput] = useState("");
+  const [selectedSizeIndexForPreview, setSelectedSizeIndexForPreview] = useState(0);
+  const [isBlueprintAdapting, setIsBlueprintAdapting] = useState(false);
 
   const isEditing = Boolean(initialData?.id);
 
@@ -94,6 +103,7 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
         ? safeCategories.find((c) => c.id === initialData.sub_category_id)
         : null;
       const detectedBlueprint: BlueprintType =
+        (initialData.blueprint_type as BlueprintType) ||
         matchedSub?.blueprint_type ||
         matchedCategory?.blueprint_type ||
         (initialData.category?.blueprint_type as BlueprintType) ||
@@ -228,6 +238,36 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
     });
   };
 
+  // Parametric blueprint resolution & on-demand adaptation state
+  const activeArchetype = resolveBlueprintType(formData.blueprint_type);
+  const [previewSnapshotTrigger, setPreviewSnapshotTrigger] = useState(0);
+
+  // Trigger smooth blueprint adaptation on demand
+  const handleAdaptBlueprint = () => {
+    setIsBlueprintAdapting(true);
+    setPreviewSnapshotTrigger((prev) => prev + 1);
+    setTimeout(() => {
+      setIsBlueprintAdapting(false);
+    }, 320);
+  };
+
+  // Helper for immutable spatial dimension updates (prevents in-place mutation bug)
+  const updateSizeDimension = (idx: number, field: string, val: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      sizes: prev.sizes.map((s, i) => {
+        if (i !== idx) return s;
+        return {
+          ...s,
+          dimensions: {
+            ...s.dimensions,
+            [field]: isNaN(val) ? 0 : val,
+          },
+        };
+      }),
+    }));
+  };
+
   // Auto-generate slug when title changes (only auto-sync if not editing existing slug)
   const handleTitleChange = (val: string) => {
     if (isEditing) {
@@ -314,6 +354,10 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
           subCategoryId = matchedSub.id;
           blueprint = matchedSub.blueprint_type || blueprint;
         }
+      }
+
+      if (data.blueprint_type) {
+        blueprint = data.blueprint_type;
       }
 
       return {
@@ -1123,6 +1167,64 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
                 )}
               </div>
 
+              {/* Architectural Scale Chart Archetype */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-[#71717A]">
+                    Architectural Scale Chart Archetype
+                  </label>
+                  <span className="text-[11px] text-[#9A3412] font-semibold">
+                    Renders live alongside 5&apos;8&quot; human silhouette on PDP
+                  </span>
+                </div>
+                <select
+                  value={formData.blueprint_type || "generic_box"}
+                  onChange={(e) => {
+                    const newType = e.target.value as BlueprintType;
+                    setFormData((prev) => ({
+                      ...prev,
+                      blueprint_type: newType,
+                    }));
+                    handleAdaptBlueprint();
+                  }}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#18181B]/15 bg-[#FAF8F5]/40 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#9A3412] text-sm font-semibold text-[#18181B] cursor-pointer"
+                >
+                  {BLUEPRINT_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {BLUEPRINT_LABELS[type] || type}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Compact Archetype Preview */}
+                <div className="mt-3 p-3.5 rounded-2xl bg-[#FAF8F5]/50 border border-[#18181B]/10 space-y-2">
+                  <div className="flex items-center justify-between text-[11px] font-mono">
+                    <div className="flex items-center gap-1.5 font-bold text-[#18181B] uppercase">
+                      <span className="w-2 h-2 rounded-full bg-[#9A3412]" />
+                      <span>{BLUEPRINT_LABELS[activeArchetype] || activeArchetype} Preview</span>
+                    </div>
+                    {isBlueprintAdapting ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] text-[#9A3412] font-semibold animate-pulse">
+                        <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                        <span>Updating...</span>
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-[#71717A]">Adapts to dimensions configured in Step 3</span>
+                    )}
+                  </div>
+                  <div className={cn("transition-opacity duration-200", isBlueprintAdapting ? "opacity-60" : "opacity-100")}>
+                    <BlueprintScaleChart
+                      key={`preview-${activeArchetype}-${previewSnapshotTrigger}`}
+                      compact
+                      blueprintType={activeArchetype}
+                      selectedSize={formData.sizes[selectedSizeIndexForPreview] || formData.sizes[0]}
+                      productTitle={formData.title_en || "Archetype Preview"}
+                      className="w-full border-0 bg-white/70 shadow-none p-2.5"
+                    />
+                  </div>
+                </div>
+              </div>
+
               {/* Showroom Title */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-[#71717A] mb-1.5">
@@ -1780,9 +1882,20 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
 
                       {/* 3 Specific Dimension Inputs driven by blueprint_type */}
                       <div className="pt-2 border-t border-[#18181B]/10">
-                        <span className="block text-[11px] font-bold uppercase tracking-wider text-[#71717A] mb-2">
-                          Spatial Dimensions (Inches)
-                        </span>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="block text-[11px] font-bold uppercase tracking-wider text-[#71717A]">
+                            Spatial Dimensions (Inches)
+                          </span>
+                          <button
+                            type="button"
+                            onClick={handleAdaptBlueprint}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#18181B] hover:bg-black text-white text-[10px] font-mono font-semibold transition-all shadow-2xs cursor-pointer active:scale-95"
+                            title="Recalculate architectural clearance elevation with current inputs"
+                          >
+                            <Sparkles className="w-3 h-3 text-[#EAE5DC]" />
+                            <span>Adapt Diagram</span>
+                          </button>
+                        </div>
                         <div className="grid grid-cols-3 gap-3">
                           {/* Dimension 1 */}
                           <div>
@@ -1805,19 +1918,28 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
                                   ? (s.dimensions.total_height && s.dimensions.total_height > 0 ? s.dimensions.total_height : "")
                                   : (s.dimensions.height && s.dimensions.height > 0 ? s.dimensions.height : "")
                               }
-                              onFocus={(e) => e.target.select()}
+                              onFocus={(e) => {
+                                e.target.select();
+                                if (selectedSizeIndexForPreview !== idx) {
+                                  setSelectedSizeIndexForPreview(idx);
+                                }
+                              }}
                               onChange={(e) => {
                                 const raw = e.target.value;
                                 const val = raw === "" ? 0 : Number(raw);
-                                const updated = [...formData.sizes];
-                                if (formData.blueprint_type === "bed") {
-                                  updated[idx].dimensions.length = isNaN(val) ? 0 : val;
-                                } else if (formData.blueprint_type === "seating") {
-                                  updated[idx].dimensions.total_height = isNaN(val) ? 0 : val;
-                                } else {
-                                  updated[idx].dimensions.height = isNaN(val) ? 0 : val;
+                                const field =
+                                  formData.blueprint_type === "bed"
+                                    ? "length"
+                                    : formData.blueprint_type === "seating"
+                                    ? "total_height"
+                                    : "height";
+                                updateSizeDimension(idx, field, val);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  handleAdaptBlueprint();
                                 }
-                                setFormData({ ...formData, sizes: updated });
                               }}
                               className="w-full px-2.5 py-1.5 rounded-lg border border-[#18181B]/15 bg-white text-xs font-mono font-semibold focus:outline-none focus:ring-1 focus:ring-[#9A3412]"
                             />
@@ -1840,17 +1962,23 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
                                   ? (s.dimensions.seat_height && s.dimensions.seat_height > 0 ? s.dimensions.seat_height : "")
                                   : (s.dimensions.width && s.dimensions.width > 0 ? s.dimensions.width : "")
                               }
-                              onFocus={(e) => e.target.select()}
+                              onFocus={(e) => {
+                                e.target.select();
+                                if (selectedSizeIndexForPreview !== idx) {
+                                  setSelectedSizeIndexForPreview(idx);
+                                }
+                              }}
                               onChange={(e) => {
                                 const raw = e.target.value;
                                 const val = raw === "" ? 0 : Number(raw);
-                                const updated = [...formData.sizes];
-                                if (formData.blueprint_type === "seating") {
-                                  updated[idx].dimensions.seat_height = isNaN(val) ? 0 : val;
-                                } else {
-                                  updated[idx].dimensions.width = isNaN(val) ? 0 : val;
+                                const field = formData.blueprint_type === "seating" ? "seat_height" : "width";
+                                updateSizeDimension(idx, field, val);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  handleAdaptBlueprint();
                                 }
-                                setFormData({ ...formData, sizes: updated });
                               }}
                               className="w-full px-2.5 py-1.5 rounded-lg border border-[#18181B]/15 bg-white text-xs font-mono font-semibold focus:outline-none focus:ring-1 focus:ring-[#9A3412]"
                             />
@@ -1877,19 +2005,28 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
                                   ? (s.dimensions.width && s.dimensions.width > 0 ? s.dimensions.width : "")
                                   : (s.dimensions.depth && s.dimensions.depth > 0 ? s.dimensions.depth : "")
                               }
-                              onFocus={(e) => e.target.select()}
+                              onFocus={(e) => {
+                                e.target.select();
+                                if (selectedSizeIndexForPreview !== idx) {
+                                  setSelectedSizeIndexForPreview(idx);
+                                }
+                              }}
                               onChange={(e) => {
                                 const raw = e.target.value;
                                 const val = raw === "" ? 0 : Number(raw);
-                                const updated = [...formData.sizes];
-                                if (formData.blueprint_type === "bed") {
-                                  updated[idx].dimensions.headboard_height = isNaN(val) ? 0 : val;
-                                } else if (formData.blueprint_type === "seating") {
-                                  updated[idx].dimensions.width = isNaN(val) ? 0 : val;
-                                } else {
-                                  updated[idx].dimensions.depth = isNaN(val) ? 0 : val;
+                                const field =
+                                  formData.blueprint_type === "bed"
+                                    ? "headboard_height"
+                                    : formData.blueprint_type === "seating"
+                                    ? "width"
+                                    : "depth";
+                                updateSizeDimension(idx, field, val);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  handleAdaptBlueprint();
                                 }
-                                setFormData({ ...formData, sizes: updated });
                               }}
                               className="w-full px-2.5 py-1.5 rounded-lg border border-[#18181B]/15 bg-white text-xs font-mono font-semibold focus:outline-none focus:ring-1 focus:ring-[#9A3412]"
                             />
@@ -1901,56 +2038,102 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
                 </div>
               </div>
 
-              {/* LIVE TACTILE SVG BLUEPRINT DIAGRAM */}
-              <div className="p-6 rounded-3xl bg-[#FAF8F5] border border-[#18181B]/10">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-bold uppercase tracking-wider text-[#18181B]">
-                    Live Structural Clearance Diagram
-                  </span>
-                  <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-[#18181B]/5 text-[#71717A]">
-                    {formData.blueprint_type.toUpperCase()} SPEC
-                  </span>
+              {/* LIVE TACTILE ARCHITECTURAL SCALE & CLEARANCE ENGINE */}
+              <div className="p-5 md:p-6 rounded-3xl bg-[#FAF8F5] border border-[#18181B]/10 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#9A3412] shrink-0" />
+                    <div>
+                      <span className="text-xs font-bold uppercase tracking-wider text-[#18181B] block">
+                        Live Architectural Clearance Diagram
+                      </span>
+                      <span className="text-[11px] text-[#71717A]">
+                        Diagram adapts to your spatial dimensions (Height, Width, Depth)
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {/* Explicit Adapt Blueprint Button requested by admin */}
+                    <button
+                      type="button"
+                      onClick={handleAdaptBlueprint}
+                      disabled={isBlueprintAdapting}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#9A3412] hover:bg-[#b03c15] text-white text-xs font-mono font-bold uppercase tracking-wider transition-all shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
+                      title="Adapt blueprint dimensions and proportions"
+                    >
+                      {isBlueprintAdapting ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
+                          <span>Adapting...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-3.5 h-3.5 text-white" />
+                          <span>Adapt Blueprint</span>
+                        </>
+                      )}
+                    </button>
+
+                    <span className="text-[11px] font-mono px-2.5 py-1 rounded-full bg-white border border-[#18181B]/10 text-[#18181B] font-bold shadow-2xs">
+                      {activeArchetype.toUpperCase()} SPEC
+                    </span>
+                  </div>
                 </div>
 
-                <div className="w-full h-44 bg-white rounded-2xl border border-[#18181B]/10 flex items-center justify-center p-4 relative overflow-hidden">
-                  <svg viewBox="0 0 320 160" className="w-full h-full max-h-40">
-                    <rect
-                      x="70"
-                      y="30"
-                      width="180"
-                      height="100"
-                      rx="6"
-                      fill="#FAF8F5"
-                      stroke="#18181B"
-                      strokeWidth="2"
-                    />
-                    <line
-                      x1="160"
-                      y1="30"
-                      x2="160"
-                      y2="130"
-                      stroke="#18181B"
-                      strokeWidth="1.5"
-                      strokeDasharray="4 2"
-                    />
-                    {/* Dimension Callout Arrows */}
-                    <line x1="45" y1="30" x2="45" y2="130" stroke="#9A3412" strokeWidth="1.5" />
-                    <text x="35" y="85" fill="#9A3412" fontSize="11" fontWeight="bold" textAnchor="end">
-                      {primarySize?.dimensions?.height || primarySize?.dimensions?.length
-                        ? `${primarySize?.dimensions?.height || primarySize?.dimensions?.length}&quot;`
-                        : `--&quot;`}
-                    </text>
-                    {/* Width */}
-                    <line x1="70" y1="145" x2="250" y2="145" stroke="#9A3412" strokeWidth="1.5" />
-                    <text x="160" y="157" fill="#9A3412" fontSize="11" fontWeight="bold" textAnchor="middle">
-                      {primarySize?.dimensions?.width ? `${primarySize?.dimensions?.width}&quot; W` : `--&quot; W`}
-                    </text>
-                    {/* Depth */}
-                    <line x1="265" y1="40" x2="285" y2="25" stroke="#71717A" strokeWidth="1.5" />
-                    <text x="290" y="30" fill="#71717A" fontSize="10" fontWeight="bold">
-                      {primarySize?.dimensions?.depth ? `${primarySize?.dimensions?.depth}&quot; D` : `--&quot; D`}
-                    </text>
-                  </svg>
+                {/* Size Variant Switcher if multiple sizes configured */}
+                {formData.sizes.length > 1 && (
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                    <span className="text-[10px] font-mono font-semibold text-[#71717A] uppercase mr-1 shrink-0">
+                      Active Variant:
+                    </span>
+                    {formData.sizes.map((s, sIdx) => {
+                      const isSel = selectedSizeIndexForPreview === sIdx;
+                      return (
+                        <button
+                          key={sIdx}
+                          type="button"
+                          onClick={() => {
+                            setSelectedSizeIndexForPreview(sIdx);
+                            handleAdaptBlueprint();
+                          }}
+                          className={cn(
+                            "px-2.5 py-1 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer border shrink-0",
+                            isSel
+                              ? "bg-[#18181B] text-white border-[#18181B] shadow-2xs"
+                              : "bg-white text-[#71717A] border-[#18181B]/15 hover:text-[#18181B]"
+                          )}
+                        >
+                          {s.size_label || `Size ${sIdx + 1}`}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Live Adapting Architectural Scale Blueprint */}
+                <div
+                  className={cn(
+                    "relative transition-opacity duration-200",
+                    isBlueprintAdapting ? "opacity-60" : "opacity-100"
+                  )}
+                >
+                  <BlueprintScaleChart
+                    key={`${activeArchetype}-${selectedSizeIndexForPreview}-${previewSnapshotTrigger}`}
+                    blueprintType={activeArchetype}
+                    selectedSize={formData.sizes[selectedSizeIndexForPreview] || formData.sizes[0]}
+                    productTitle={formData.title_en || "Custom Furniture"}
+                    className="w-full shadow-sm"
+                  />
+
+                  {isBlueprintAdapting && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-white/30 backdrop-blur-[1px] rounded-2xl pointer-events-none">
+                      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#18181B] text-white text-xs font-mono font-semibold shadow-lg">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-[#9A3412]" />
+                        <span>Adapting Blueprint...</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

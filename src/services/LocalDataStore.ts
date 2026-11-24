@@ -149,6 +149,7 @@ export class LocalDataStore {
       id: productId,
       category_id: formData.category_id,
       sub_category_id: formData.sub_category_id || null,
+      blueprint_type: formData.blueprint_type || null,
       title_en: formData.title_en,
       slug: formData.slug,
       tagline: formData.tagline,

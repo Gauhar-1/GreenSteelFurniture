@@ -15,6 +15,8 @@ import {
   RefreshCw,
   Sparkles,
   Layers,
+  LayoutGrid,
+  List,
 } from "lucide-react";
 import { type ProductCatalogItem } from "@/services/ProductService";
 import { deleteProductAction } from "@/actions/adminActions";
@@ -29,6 +31,7 @@ interface ProductCatalogListProps {
 export function ProductCatalogList({ initialProducts }: ProductCatalogListProps) {
   const [products, setProducts] = useState<ProductCatalogItem[]>(initialProducts);
   const [searchQuery, setSearchQuery] = useState("");
+  const [desktopView, setDesktopView] = useState<"grid" | "table">("grid");
   const [isPending, startTransition] = useTransition();
   const [toast, setToast] = useState<{ success: boolean; message: string } | null>(null);
 
@@ -113,7 +116,7 @@ export function ProductCatalogList({ initialProducts }: ProductCatalogListProps)
         </Link>
       </div>
 
-      {/* Search Bar */}
+      {/* Search Bar & Desktop View Toggle */}
       <div className="flex items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-[#18181B]/10 shadow-2xs">
         <div className="relative w-full sm:w-80">
           <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#71717A]" />
@@ -126,9 +129,43 @@ export function ProductCatalogList({ initialProducts }: ProductCatalogListProps)
           />
         </div>
 
-        <span className="text-xs font-mono font-semibold text-[#71717A] shrink-0">
-          {products.length} Products
-        </span>
+        <div className="flex items-center gap-3 shrink-0">
+          {/* Desktop View Switcher */}
+          <div className="hidden md:inline-flex p-0.5 rounded-xl bg-[#FAF8F5] border border-[#18181B]/10">
+            <button
+              type="button"
+              onClick={() => setDesktopView("grid")}
+              title="Card Grid View (Interactive Blueprints)"
+              className={cn(
+                "p-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 text-xs font-semibold",
+                desktopView === "grid"
+                  ? "bg-white text-[#18181B] shadow-2xs"
+                  : "text-[#71717A] hover:text-[#18181B]"
+              )}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span className="text-[10px]">Cards</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setDesktopView("table")}
+              title="Compact Table View"
+              className={cn(
+                "p-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 text-xs font-semibold",
+                desktopView === "table"
+                  ? "bg-white text-[#18181B] shadow-2xs"
+                  : "text-[#71717A] hover:text-[#18181B]"
+              )}
+            >
+              <List className="w-3.5 h-3.5" />
+              <span className="text-[10px]">Table</span>
+            </button>
+          </div>
+
+          <span className="text-xs font-mono font-semibold text-[#71717A] shrink-0">
+            {products.length} Products
+          </span>
+        </div>
       </div>
 
       {/* EMPTY STATE */}
@@ -148,134 +185,142 @@ export function ProductCatalogList({ initialProducts }: ProductCatalogListProps)
       ) : (
         <>
           {/* ============================================================ */}
-          {/* DESKTOP TABLE VIEW (Visible on md and above)                 */}
+          {/* DESKTOP VIEW (Visible on md and above)                       */}
           {/* ============================================================ */}
-          <div className="hidden md:block bg-white rounded-3xl border border-[#18181B]/10 overflow-hidden shadow-xs">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-[#18181B]/10 bg-[#FAF8F5]/60 text-[#71717A] uppercase tracking-wider font-mono text-[10px]">
-                    <th className="py-3.5 px-4 font-semibold">Furniture Model</th>
-                    <th className="py-3.5 px-4 font-semibold">Department / Blueprint</th>
-                    <th className="py-3.5 px-4 font-semibold">Base Price</th>
-                    <th className="py-3.5 px-4 font-semibold">Color Finishes</th>
-                    <th className="py-3.5 px-4 font-semibold">Sizes</th>
-                    <th className="py-3.5 px-4 font-semibold">Status</th>
-                    <th className="py-3.5 px-4 font-semibold text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#18181B]/5">
-                  {filteredProducts.map((p) => {
-                    const firstFinish = p.finishes?.[0];
-                    const lifestyleImage =
-                      firstFinish?.media?.lifestyle ||
-                      firstFinish?.media?.front ||
-                      "/bento-wardrobe-navy.png";
+          {desktopView === "grid" ? (
+            <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredProducts.map((p) => (
+                <AdminProductCard key={p.id} product={p} onDelete={handleDelete} />
+              ))}
+            </div>
+          ) : (
+            <div className="hidden md:block bg-white rounded-3xl border border-[#18181B]/10 overflow-hidden shadow-xs">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-[#18181B]/10 bg-[#FAF8F5]/60 text-[#71717A] uppercase tracking-wider font-mono text-[10px]">
+                      <th className="py-3.5 px-4 font-semibold">Furniture Model</th>
+                      <th className="py-3.5 px-4 font-semibold">Department / Blueprint</th>
+                      <th className="py-3.5 px-4 font-semibold">Base Price</th>
+                      <th className="py-3.5 px-4 font-semibold">Color Finishes</th>
+                      <th className="py-3.5 px-4 font-semibold">Sizes</th>
+                      <th className="py-3.5 px-4 font-semibold">Status</th>
+                      <th className="py-3.5 px-4 font-semibold text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#18181B]/5">
+                    {filteredProducts.map((p) => {
+                      const firstFinish = p.finishes?.[0];
+                      const lifestyleImage =
+                        firstFinish?.media?.lifestyle ||
+                        firstFinish?.media?.front ||
+                        "/bento-wardrobe-navy.png";
 
-                    return (
-                      <tr key={p.id} className="hover:bg-[#FAF8F5]/50 transition-colors">
-                        <td className="py-4 px-4">
-                          <div className="flex items-center gap-3">
-                            <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-[#FAF8F5] shrink-0 border border-[#18181B]/10">
-                              <Image
-                                src={lifestyleImage}
-                                alt={p.title_en}
-                                fill
-                                sizes="48px"
-                                className="object-cover"
-                              />
-                            </div>
-                            <div>
-                              <div className="font-bold text-[#18181B] line-clamp-1">
-                                {p.title_en}
+                      return (
+                        <tr key={p.id} className="hover:bg-[#FAF8F5]/50 transition-colors">
+                          <td className="py-4 px-4">
+                            <div className="flex items-center gap-3">
+                              <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-[#FAF8F5] shrink-0 border border-[#18181B]/10">
+                                <Image
+                                  src={lifestyleImage}
+                                  alt={p.title_en}
+                                  fill
+                                  sizes="48px"
+                                  className="object-cover"
+                                />
                               </div>
-                              <span className="text-[10px] font-mono text-[#9A3412]">
-                                /{p.slug}
+                              <div>
+                                <div className="font-bold text-[#18181B] line-clamp-1">
+                                  {p.title_en}
+                                </div>
+                                <span className="text-[10px] font-mono text-[#9A3412]">
+                                  /{p.slug}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+
+                          <td className="py-4 px-4">
+                            <div className="font-semibold text-[#18181B]">
+                              {p.category?.name_en || "General"}
+                            </div>
+                            <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-[#FAF8F5] border border-[#18181B]/10 text-[#71717A]">
+                              {p.category?.blueprint_type || "wardrobe"}
+                            </span>
+                          </td>
+
+                          <td className="py-4 px-4 font-bold text-[#18181B]">
+                            ₹{Number(p.base_price).toLocaleString("en-IN")}
+                          </td>
+
+                          <td className="py-4 px-4">
+                            <div className="flex items-center gap-1.5">
+                              {p.finishes?.slice(0, 4).map((f) => (
+                                <span
+                                  key={f.id}
+                                  title={f.finish_name}
+                                  className="w-4 h-4 rounded-full border border-[#18181B]/20 inline-block shadow-2xs"
+                                  style={{ backgroundColor: f.hex_code }}
+                                />
+                              ))}
+                              <span className="text-[10px] text-[#71717A] ml-1 font-mono">
+                                ({p.finishes?.length || 0})
                               </span>
                             </div>
-                          </div>
-                        </td>
+                          </td>
 
-                        <td className="py-4 px-4">
-                          <div className="font-semibold text-[#18181B]">
-                            {p.category?.name_en || "General"}
-                          </div>
-                          <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-[#FAF8F5] border border-[#18181B]/10 text-[#71717A]">
-                            {p.category?.blueprint_type || "wardrobe"}
-                          </span>
-                        </td>
+                          <td className="py-4 px-4 font-mono text-xs text-[#71717A]">
+                            {p.sizes?.length || 0} Size(s)
+                          </td>
 
-                        <td className="py-4 px-4 font-bold text-[#18181B]">
-                          ₹{Number(p.base_price).toLocaleString("en-IN")}
-                        </td>
-
-                        <td className="py-4 px-4">
-                          <div className="flex items-center gap-1.5">
-                            {p.finishes?.slice(0, 4).map((f) => (
-                              <span
-                                key={f.id}
-                                title={f.finish_name}
-                                className="w-4 h-4 rounded-full border border-[#18181B]/20 inline-block shadow-2xs"
-                                style={{ backgroundColor: f.hex_code }}
-                              />
-                            ))}
-                            <span className="text-[10px] text-[#71717A] ml-1 font-mono">
-                              ({p.finishes?.length || 0})
+                          <td className="py-4 px-4">
+                            <span
+                              className={cn(
+                                "px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                                p.is_active
+                                  ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                                  : "bg-gray-100 text-gray-700"
+                              )}
+                            >
+                              {p.is_active ? "Active" : "Draft"}
                             </span>
-                          </div>
-                        </td>
+                          </td>
 
-                        <td className="py-4 px-4 font-mono text-xs text-[#71717A]">
-                          {p.sizes?.length || 0} Size(s)
-                        </td>
-
-                        <td className="py-4 px-4">
-                          <span
-                            className={cn(
-                              "px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
-                              p.is_active
-                                ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-                                : "bg-gray-100 text-gray-700"
-                            )}
-                          >
-                            {p.is_active ? "Active" : "Draft"}
-                          </span>
-                        </td>
-
-                        <td className="py-4 px-4 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <Link
-                              href={`/admin/products/${p.id}/edit`}
-                              className="p-1.5 rounded-lg border border-[#18181B]/15 hover:border-[#9A3412] bg-[#FAF8F5] hover:bg-[#FAF8F5]/80 text-[#18181B] hover:text-[#9A3412] transition-colors"
-                              title="Edit Product Blueprint"
-                            >
-                              <Pencil className="w-3.5 h-3.5 text-[#9A3412]" />
-                            </Link>
-                            <Link
-                              href={`/categories/${p.category?.slug || "bedroom"}/product/${p.slug}`}
-                              target="_blank"
-                              className="p-1.5 rounded-lg border border-[#18181B]/10 hover:border-[#18181B] text-[#71717A] hover:text-[#18181B]"
-                              title="Live Storefront View"
-                            >
-                              <ArrowUpRight className="w-3.5 h-3.5" />
-                            </Link>
-                            <button
-                              type="button"
-                              onClick={() => handleDelete(p.id, p.title_en)}
-                              className="p-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 cursor-pointer"
-                              title="Delete Product"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                          <td className="py-4 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <Link
+                                href={`/admin/products/${p.id}/edit`}
+                                className="p-1.5 rounded-lg border border-[#18181B]/15 hover:border-[#9A3412] bg-[#FAF8F5] hover:bg-[#FAF8F5]/80 text-[#18181B] hover:text-[#9A3412] transition-colors"
+                                title="Edit Product Blueprint"
+                              >
+                                <Pencil className="w-3.5 h-3.5 text-[#9A3412]" />
+                              </Link>
+                              <Link
+                                href={`/categories/${p.category?.slug || "bedroom"}/product/${p.slug}`}
+                                target="_blank"
+                                className="p-1.5 rounded-lg border border-[#18181B]/10 hover:border-[#18181B] text-[#71717A] hover:text-[#18181B]"
+                                title="Live Storefront View"
+                              >
+                                <ArrowUpRight className="w-3.5 h-3.5" />
+                              </Link>
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(p.id, p.title_en)}
+                                className="p-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 cursor-pointer"
+                                title="Delete Product"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* ============================================================ */}
           {/* MOBILE CARDS VIEW (Visible on mobile, hidden on md+)         */}

@@ -92,6 +92,14 @@ export function ProductDetailView({
   const [selectedFinish, setSelectedFinish] = useState(resolvedInitialFinish);
   const [selectedSize, setSelectedSize] = useState(resolvedInitialSize);
   const [isAdded, setIsAdded] = useState(false);
+  const [activeVisualMode, setActiveVisualMode] = useState<string>("lifestyle");
+
+  const handleViewBlueprint = () => {
+    setActiveVisualMode("size-chart");
+    if (typeof window !== "undefined" && window.innerWidth < 1024) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
 
   // Synchronize browser address bar with selected finish and size (shallow, zero reload)
   useEffect(() => {
@@ -174,10 +182,15 @@ export function ProductDetailView({
             finishMedia={selectedFinish.media}
             finishName={selectedFinish.finish_name}
             productTitle={product.title_en}
+            categoryName={categoryName || product.category?.name_en}
             slot3Label={theme.slot3Label}
             blueprintType={blueprintType}
+            productBlueprintType={product.blueprint_type}
+            selectedSize={selectedSize}
             dimensions={selectedSize.dimensions}
             theme={theme}
+            activeModeId={activeVisualMode}
+            onModeChange={setActiveVisualMode}
             className="h-full"
           />
         </section>
@@ -202,6 +215,7 @@ export function ProductDetailView({
               waUrl={waUrl}
               callUrl={callUrl}
               theme={theme}
+              onViewBlueprint={handleViewBlueprint}
             />
           </div>
         </section>
@@ -218,10 +232,15 @@ export function ProductDetailView({
             finishMedia={selectedFinish.media}
             finishName={selectedFinish.finish_name}
             productTitle={product.title_en}
+            categoryName={categoryName || product.category?.name_en}
             slot3Label={theme.slot3Label}
             blueprintType={blueprintType}
+            productBlueprintType={product.blueprint_type}
+            selectedSize={selectedSize}
             dimensions={selectedSize.dimensions}
             theme={theme}
+            activeModeId={activeVisualMode}
+            onModeChange={setActiveVisualMode}
             className="h-full"
           />
         </div>
@@ -242,6 +261,7 @@ export function ProductDetailView({
             waUrl={waUrl}
             callUrl={callUrl}
             theme={theme}
+            onViewBlueprint={handleViewBlueprint}
           />
         </div>
 

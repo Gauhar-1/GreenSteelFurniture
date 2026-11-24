@@ -64,6 +64,7 @@ export async function saveProductWizardAction(
           .update({
             category_id: validated.category_id,
             sub_category_id: validated.sub_category_id || null,
+            blueprint_type: validated.blueprint_type || null,
             title_en: validated.title_en,
             slug: validated.slug,
             tagline: validated.tagline,
@@ -88,6 +89,7 @@ export async function saveProductWizardAction(
           .insert({
             category_id: validated.category_id,
             sub_category_id: validated.sub_category_id || null,
+            blueprint_type: validated.blueprint_type || null,
             title_en: validated.title_en,
             slug: validated.slug,
             tagline: validated.tagline,

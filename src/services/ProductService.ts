@@ -7,6 +7,7 @@ export interface ProductCatalogItem {
   id: string;
   category_id: string;
   sub_category_id: string | null;
+  blueprint_type?: string | null;
   title_en: string;
   slug: string;
   tagline: string;

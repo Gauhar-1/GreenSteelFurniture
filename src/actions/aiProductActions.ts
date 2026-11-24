@@ -4,6 +4,7 @@ import { z } from "zod";
 import { verifyAdminSession } from "@/actions/authActions";
 import { CategoryService } from "@/services/CategoryService";
 import { sanitizeErrorMessage } from "@/lib/errorSanitizer";
+import { BLUEPRINT_TYPES, type BlueprintType } from "@/lib/blueprintUtils";
 
 export interface AIProductAnalysisData {
   title_en: string;
@@ -12,6 +13,7 @@ export interface AIProductAnalysisData {
   highlights: string[];
   category_id: string | null;
   sub_category_id: string | null;
+  blueprint_type?: BlueprintType;
 }
 
 export interface AIProductAnalysisResult {
@@ -27,6 +29,7 @@ const AIFurnitureResponseSchema = z.object({
   highlights: z.array(z.string()).default([]),
   category_id: z.string().nullable().default(null),
   sub_category_id: z.string().nullable().default(null),
+  blueprint_type: z.enum(BLUEPRINT_TYPES).optional().default("generic_box"),
 });
 
 /**
@@ -113,6 +116,7 @@ Inspect the uploaded furniture photo and return ONLY a valid JSON object matchin
   "tagline": "One punchy 8-14 word editorial subtitle",
   "description": "2-3 refined sentences highlighting 304-grade stainless steel craftsmanship, zero termites, rust-proof durability, and modern Indian home styling.",
   "highlights": ["4 to 5 short scannable specs/features based on visible details (finials, laser-cut panel, etched glass, tufted cushions, heavy-gauge steel)"],
+  "blueprint_type": "exact archetype: wardrobe | bed | dining_table | jhula | sofa | desk | chair | generic_box",
   "category_id": "exact matching UUID from the provided categories list, or null",
   "sub_category_id": "exact matching UUID from the provided sub_categories list belonging to category_id, or null"
 }
@@ -270,6 +274,7 @@ ${JSON.stringify(subCategories, null, 2)}`;
         highlights: Array.isArray(aiData.highlights) ? aiData.highlights.filter(Boolean) : [],
         category_id: validatedCategoryId,
         sub_category_id: validatedSubCategoryId,
+        blueprint_type: aiData.blueprint_type,
       },
     };
   } catch (error) {

@@ -5,14 +5,20 @@ import Image from "next/image";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { VisualDimensionGuide } from "./VisualDimensionGuide";
+import { BlueprintScaleChart } from "./BlueprintScaleChart";
+import { resolveBlueprintType, BLUEPRINT_TYPES, type BlueprintType } from "@/lib/blueprintUtils";
 import type { CategoryTheme } from "@/lib/categoryThemes";
+import type { ProductCatalogItem } from "@/services/ProductService";
 
 export interface VisualStageProps {
   finishMedia: Record<string, string>;
   finishName: string;
   productTitle: string;
+  categoryName?: string;
   slot3Label: string;
   blueprintType?: string;
+  productBlueprintType?: string | null;
+  selectedSize?: ProductCatalogItem["sizes"][number] | null;
   dimensions?: {
     height?: number;
     width?: number;
@@ -25,6 +31,8 @@ export interface VisualStageProps {
   };
   theme: CategoryTheme;
   className?: string;
+  activeModeId?: string;
+  onModeChange?: (modeId: string) => void;
 }
 
 interface VisualMode {
@@ -48,13 +56,43 @@ export function VisualStage({
   finishMedia,
   finishName,
   productTitle,
+  categoryName,
   slot3Label,
   blueprintType = "wardrobe",
+  productBlueprintType,
+  selectedSize,
   dimensions,
   theme,
   className,
+  activeModeId: propActiveModeId,
+  onModeChange,
 }: VisualStageProps) {
-  const [activeModeId, setActiveModeId] = useState<string>("lifestyle");
+  const [internalModeId, setInternalModeId] = useState<string>("lifestyle");
+  const activeModeId = propActiveModeId !== undefined ? propActiveModeId : internalModeId;
+
+  const handleSetModeId = useCallback(
+    (id: string) => {
+      if (onModeChange) {
+        onModeChange(id);
+      } else {
+        setInternalModeId(id);
+      }
+    },
+    [onModeChange]
+  );
+
+  const resolvedBlueprint = useMemo(() => {
+    return resolveBlueprintType(
+      productBlueprintType,
+      blueprintType,
+      `${productTitle} ${categoryName || ""}`
+    );
+  }, [productBlueprintType, blueprintType, productTitle, categoryName]);
+
+  const hasProductBlueprint = Boolean(
+    (productBlueprintType && productBlueprintType.trim()) ||
+    resolvedBlueprint !== "generic_box"
+  );
   const stageRef = useRef<HTMLDivElement>(null);
 
   // Drag / Swipe State for Touch & Mouse
@@ -159,12 +197,12 @@ export function VisualStage({
     // Architectural Size Chart (SVG)
     modes.push({
       id: "size-chart",
-      label: "Size Chart (SVG)",
+      label: hasProductBlueprint ? "Scale Blueprint" : "Size Chart (SVG)",
       isSvg: true,
     });
 
     return modes;
-  }, [lifestyleUrl, frontUrl, functionalUrl, macroUrl, finishMedia, slot3Label]);
+  }, [lifestyleUrl, frontUrl, functionalUrl, macroUrl, finishMedia, slot3Label, hasProductBlueprint]);
 
   // Resolve active index based on activeModeId; fallback to 0 if not found
   const activeModeIndex = useMemo(() => {
@@ -179,15 +217,15 @@ export function VisualStage({
   // Navigation handlers
   const handleNext = useCallback(() => {
     if (activeModeIndex < availableModes.length - 1) {
-      setActiveModeId(availableModes[activeModeIndex + 1].id);
+      handleSetModeId(availableModes[activeModeIndex + 1].id);
     }
-  }, [availableModes, activeModeIndex]);
+  }, [availableModes, activeModeIndex, handleSetModeId]);
 
   const handlePrev = useCallback(() => {
     if (activeModeIndex > 0) {
-      setActiveModeId(availableModes[activeModeIndex - 1].id);
+      handleSetModeId(availableModes[activeModeIndex - 1].id);
     }
-  }, [availableModes, activeModeIndex]);
+  }, [availableModes, activeModeIndex, handleSetModeId]);
 
   // Touch Swipe Handlers (Mobile / Tablets)
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -235,9 +273,9 @@ export function VisualStage({
 
       if (isFlick || isDragCross) {
         if (diffX < 0 && !isAtLast) {
-          setActiveModeId(availableModes[activeModeIndex + 1].id);
+          handleSetModeId(availableModes[activeModeIndex + 1].id);
         } else if (diffX > 0 && !isAtFirst) {
-          setActiveModeId(availableModes[activeModeIndex - 1].id);
+          handleSetModeId(availableModes[activeModeIndex - 1].id);
         }
       }
     }
@@ -280,9 +318,9 @@ export function VisualStage({
 
     if (isFlick || isDragCross) {
       if (diffX < 0 && !isAtLast) {
-        setActiveModeId(availableModes[activeModeIndex + 1].id);
+        handleSetModeId(availableModes[activeModeIndex + 1].id);
       } else if (diffX > 0 && !isAtFirst) {
-        setActiveModeId(availableModes[activeModeIndex - 1].id);
+        handleSetModeId(availableModes[activeModeIndex - 1].id);
       }
     }
   };
@@ -357,19 +395,28 @@ export function VisualStage({
               aria-hidden={activeModeIndex !== idx}
             >
               {mode.isSvg ? (
-                <div className="w-full h-full max-h-[70vh] flex items-center justify-center p-2 sm:p-4 pointer-events-auto">
-                  <VisualDimensionGuide
-                    variant="light"
-                    heightInches={dimensions?.height || 78}
-                    widthInches={dimensions?.width || 36}
-                    depthInches={dimensions?.depth || 22}
-                    lengthInches={dimensions?.length}
-                    headboardHeight={dimensions?.headboard_height}
-                    seatHeight={dimensions?.seat_height}
-                    blueprintType={blueprintType}
-                    note="Laser-measured precision steel fabrication. All dimensions in inches."
-                    className="h-full w-full max-w-xl mx-auto shadow-sm"
-                  />
+                <div className="w-full h-full max-h-[70vh] flex items-center justify-center p-2 sm:p-4 pointer-events-auto overflow-y-auto">
+                  {hasProductBlueprint ? (
+                    <BlueprintScaleChart
+                      blueprintType={resolvedBlueprint}
+                      selectedSize={selectedSize}
+                      productTitle={productTitle}
+                      className="w-full max-w-xl mx-auto shadow-sm"
+                    />
+                  ) : (
+                    <VisualDimensionGuide
+                      variant="light"
+                      heightInches={dimensions?.height || 78}
+                      widthInches={dimensions?.width || 36}
+                      depthInches={dimensions?.depth || 22}
+                      lengthInches={dimensions?.length}
+                      headboardHeight={dimensions?.headboard_height}
+                      seatHeight={dimensions?.seat_height}
+                      blueprintType={blueprintType}
+                      note="Laser-measured precision steel fabrication. All dimensions in inches."
+                      className="h-full w-full max-w-xl mx-auto shadow-sm"
+                    />
+                  )}
                 </div>
               ) : (
                 <div className="relative w-full h-full max-h-[70vh] flex items-center justify-center p-2">
@@ -425,52 +472,59 @@ export function VisualStage({
         </>
       )}
 
-      {/* Bottom Bar: Dot & Dash Pagination Indicator + Counter */}
+      {/* Bottom Bar: Visual Mode Switcher Pills + Active Indicator */}
       {availableModes.length > 0 && (
-        <div className="w-full pb-2.5 pt-2 px-3 sm:px-4 z-20 flex items-center justify-between shrink-0">
-          {/* Active Image Counter & Label */}
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-[11px] sm:text-xs font-bold text-[#18181B] tracking-wider bg-black/5 px-2 py-0.5 rounded-md border border-black/10">
-              {String(activeModeIndex + 1).padStart(2, "0")} / {String(availableModes.length).padStart(2, "0")}
-            </span>
-            <span className="text-[11px] sm:text-xs text-[#18181B]/75 font-medium truncate max-w-[130px] sm:max-w-[220px]">
-              {activeModeItem.label}
-            </span>
-          </div>
-
-          {/* Dot and Dash Indicator Bar */}
+        <div className="w-full pb-2.5 pt-2 px-3 sm:px-4 z-20 flex flex-wrap items-center justify-between gap-2 shrink-0">
+          {/* Visual Mode Pills */}
           <div
-            className="flex items-center gap-1.5 sm:gap-2"
+            className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-1 max-w-full"
             role="tablist"
-            aria-label="Image views"
+            aria-label="Image and blueprint views"
           >
             {availableModes.map((mode, idx) => {
               const isActive = activeModeIndex === idx;
+              const isBlueprint = mode.id === "size-chart";
+
               return (
                 <button
                   key={mode.id}
                   type="button"
                   role="tab"
                   aria-selected={isActive}
-                  aria-label={`View ${idx + 1} of ${availableModes.length}: ${mode.label}`}
+                  aria-label={`View ${mode.label}`}
                   onClick={(e) => {
                     e.stopPropagation();
-                    setActiveModeId(mode.id);
+                    handleSetModeId(mode.id);
                   }}
                   className={cn(
-                    "h-2 rounded-full transition-all duration-300 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#18181B]/40",
+                    "px-2.5 sm:px-3 py-1 rounded-full text-[10px] sm:text-[11px] font-semibold tracking-wide transition-all duration-200 cursor-pointer touch-manipulation flex items-center gap-1.5 select-none whitespace-nowrap",
                     isActive
-                      ? "w-7 sm:w-9 bg-[#18181B] shadow-xs"
-                      : "w-2 sm:w-2.5 bg-[#18181B]/20 hover:bg-[#18181B]/45 hover:scale-125"
+                      ? isBlueprint
+                        ? "bg-[#163826] text-emerald-300 ring-2 ring-emerald-500/40 shadow-xs"
+                        : "bg-[#18181B] text-white shadow-xs"
+                      : isBlueprint
+                      ? "bg-white/85 text-[#163826] hover:bg-white border border-[#163826]/30 font-bold shadow-2xs"
+                      : "bg-white/80 text-[#18181B]/70 hover:text-[#18181B] hover:bg-white border border-black/10"
                   )}
-                />
+                >
+                  {isBlueprint ? (
+                    <>
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span>📐 {mode.label}</span>
+                    </>
+                  ) : (
+                    <span>{mode.label}</span>
+                  )}
+                </button>
               );
             })}
           </div>
 
-          {/* Swipe Hint */}
-          <div className="hidden sm:flex items-center gap-1 text-[10px] text-[#71717A] tracking-wider uppercase font-medium">
-            <span>Swipe to view</span>
+          {/* Active Image Counter */}
+          <div className="hidden sm:flex items-center gap-2">
+            <span className="font-mono text-[10px] sm:text-[11px] font-bold text-[#18181B] tracking-wider bg-black/5 px-2 py-0.5 rounded-md border border-black/10">
+              {String(activeModeIndex + 1).padStart(2, "0")} / {String(availableModes.length).padStart(2, "0")}
+            </span>
           </div>
         </div>
       )}

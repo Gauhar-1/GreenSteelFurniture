@@ -32,6 +32,7 @@ interface ProductConfigurationProps {
   callUrl: string;
   theme: CategoryTheme;
   className?: string;
+  onViewBlueprint?: () => void;
 }
 
 /**
@@ -60,6 +61,7 @@ export function ProductConfiguration({
   callUrl,
   theme,
   className,
+  onViewBlueprint,
 }: ProductConfigurationProps) {
   const price = Number(selectedSize?.price || product.base_price);
   const mrp = Math.round(price * 1.3);
@@ -207,11 +209,24 @@ export function ProductConfiguration({
           <label className="text-xs font-bold uppercase tracking-[0.18em] text-[#18181B]">
             Proportions & Size
           </label>
-          {hasDimensions && (
-            <span className="text-[11px] font-bold text-[#9A3412] font-mono">
-              H: {dims?.height || 78}&quot; × W: {dims?.width || 36}&quot; × D: {dims?.depth || 22}&quot;
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {hasDimensions && (
+              <span className="text-[11px] font-bold text-[#9A3412] font-mono">
+                H: {dims?.height || 78}&quot; × W: {dims?.width || 36}&quot; × D: {dims?.depth || 22}&quot;
+              </span>
+            )}
+            {onViewBlueprint && (
+              <button
+                type="button"
+                onClick={onViewBlueprint}
+                className="text-[10px] font-bold uppercase tracking-wider text-[#9A3412] bg-[#9A3412]/10 hover:bg-[#9A3412]/20 border border-[#9A3412]/30 px-2.5 py-0.5 rounded-full transition-all flex items-center gap-1.5 cursor-pointer touch-manipulation hover:scale-105 active:scale-95 shadow-2xs"
+                title="View Architectural Scale Chart in Stage"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-[#9A3412] animate-pulse" />
+                <span>VIEW CHART</span>
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
