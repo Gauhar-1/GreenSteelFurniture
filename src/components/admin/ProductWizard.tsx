@@ -23,6 +23,8 @@ import {
   X,
   Link as LinkIcon,
   AlertTriangle,
+  Sparkles,
+  Loader2,
 } from "lucide-react";
 import {
   type BlueprintType,
@@ -34,9 +36,12 @@ import {
 import { type ProductCatalogItem } from "@/services/ProductService";
 import { saveProductWizardAction } from "@/actions/adminActions";
 import { StorageService } from "@/services/StorageService";
+import { compressImageForAI } from "@/lib/aiImagePrep";
+import { analyzeFurniturePhotoAction, type AIProductAnalysisData } from "@/actions/aiProductActions";
 
 // Standard curated durable furniture finish swatches for convenience
 const COLOR_PRESETS = [
+  { name: "Matte Steel", hex: "#71797E" },
   { name: "Matte Charcoal", hex: "#36454F" },
   { name: "Matte Navy", hex: "#1E3A5F" },
   { name: "Soft Ivory", hex: "#FDFBF7" },
@@ -68,6 +73,12 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
 
   const [activeStep, setActiveStep] = useState<1 | 2 | 3>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState(false);
+  const [aiBannerMessage, setAiBannerMessage] = useState<{
+    type: "success" | "error" | "info";
+    text: string;
+  } | null>(null);
+  const aiFileInputRef = useRef<HTMLInputElement>(null);
   const [feedback, setFeedback] = useState<{ success: boolean; message: string } | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [selectedFinishIndex, setSelectedFinishIndex] = useState(0);
@@ -104,8 +115,8 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
             }))
           : [
               {
-                finish_name: "Matte Charcoal",
-                hex_code: "#36454F",
+                finish_name: "Matte Steel",
+                hex_code: "#71797E",
                 is_default: true,
                 media: { lifestyle: "", front: "", functional: "", macro: "" },
               },
@@ -172,8 +183,8 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
       is_featured: false,
       finishes: [
         {
-          finish_name: "Matte Charcoal",
-          hex_code: "#36454F",
+          finish_name: "Matte Steel",
+          hex_code: "#71797E",
           is_default: true,
           media: {
             lifestyle: "",
@@ -262,6 +273,114 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
       blueprint_type: sub.blueprint_type,
     }));
     clearFieldError("sub_category_id");
+  };
+
+  // Helper to ground AI output in catalog taxonomy and merge highlights
+  const applyAiTaxonomyAndHighlights = (
+    data: AIProductAnalysisData,
+    overwriteTitleAndTagline: boolean
+  ) => {
+    setFormData((prev) => {
+      const newSlug = overwriteTitleAndTagline
+        ? data.title_en
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/(^-|-$)+/g, "")
+        : prev.slug;
+
+      // Merge and deduplicate highlights
+      const existingLower = new Set(prev.highlights.map((h) => h.toLowerCase()));
+      const incomingUnique = (data.highlights || []).filter(
+        (h) => !existingLower.has(h.toLowerCase())
+      );
+      const mergedHighlights = [...prev.highlights, ...incomingUnique];
+
+      // Match category and subcategory against verified safeCategories
+      let categoryId = prev.category_id;
+      let subCategoryId = prev.sub_category_id;
+      let blueprint = prev.blueprint_type;
+
+      if (data.category_id) {
+        const matchedParent = safeCategories.find((c) => c.id === data.category_id);
+        if (matchedParent && matchedParent.id) {
+          categoryId = matchedParent.id;
+          blueprint = matchedParent.blueprint_type || blueprint;
+        }
+      }
+
+      if (data.sub_category_id) {
+        const matchedSub = safeCategories.find((c) => c.id === data.sub_category_id);
+        if (matchedSub && matchedSub.id) {
+          subCategoryId = matchedSub.id;
+          blueprint = matchedSub.blueprint_type || blueprint;
+        }
+      }
+
+      return {
+        ...prev,
+        category_id: categoryId,
+        sub_category_id: subCategoryId,
+        blueprint_type: blueprint,
+        title_en: overwriteTitleAndTagline ? data.title_en : prev.title_en,
+        slug: newSlug,
+        tagline: overwriteTitleAndTagline ? data.tagline : prev.tagline,
+        highlights: mergedHighlights,
+        // PRESERVES ALL OWNER WORK: base_price, finishes, sizes remain untouched!
+      };
+    });
+  };
+
+  // Trigger AI analysis on a selected furniture photo
+  const handleAiAutoFill = async (file: File) => {
+    setIsAnalyzingPhoto(true);
+    setAiBannerMessage(null);
+
+    try {
+      const base64DataUrl = await compressImageForAI(file);
+      const result = await analyzeFurniturePhotoAction(base64DataUrl);
+
+      if (!result.success || !result.data) {
+        setAiBannerMessage({
+          type: "error",
+          text: result.error || "Could not analyze photo. Please enter details manually.",
+        });
+        return;
+      }
+
+      const { data } = result;
+
+      // If owner has already typed a title, confirm before overwriting
+      if (formData.title_en.trim().length > 0 && formData.title_en !== data.title_en) {
+        const confirmOverwrite = window.confirm(
+          `AI suggested title: "${data.title_en}".\nDo you want to overwrite your existing title and tagline?`
+        );
+        if (!confirmOverwrite) {
+          applyAiTaxonomyAndHighlights(data, false);
+          setAiBannerMessage({
+            type: "info",
+            text: "Kept your existing title. Room taxonomy and specifications were updated.",
+          });
+          return;
+        }
+      }
+
+      applyAiTaxonomyAndHighlights(data, true);
+      clearFieldError("title_en", "slug", "tagline", "category_id", "sub_category_id");
+
+      setAiBannerMessage({
+        type: "success",
+        text: "✨ Details auto-filled from photo! Review and add your sizes & pricing.",
+      });
+    } catch (err) {
+      console.error("AI Auto-Fill Error:", err);
+      setAiBannerMessage({
+        type: "error",
+        text: err instanceof Error ? err.message : "Failed to analyze photo with AI.",
+      });
+    } finally {
+      setIsAnalyzingPhoto(false);
+      if (aiFileInputRef.current) aiFileInputRef.current.value = "";
+    }
   };
 
   // Add Product Highlight
@@ -374,12 +493,12 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
   const stepHasErrors = (step: 1 | 2 | 3): boolean => {
     const errorKeys = Object.keys(fieldErrors);
     if (step === 1) {
+      return errorKeys.some((k) => k.startsWith("finishes"));
+    }
+    if (step === 2) {
       return errorKeys.some((k) =>
         ["category_id", "sub_category_id", "title_en", "slug", "tagline", "base_price"].includes(k)
       );
-    }
-    if (step === 2) {
-      return errorKeys.some((k) => k.startsWith("finishes"));
     }
     if (step === 3) {
       return errorKeys.some((k) => k.startsWith("sizes"));
@@ -398,7 +517,34 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
     let firstStep: 1 | 2 | 3 = 1;
     let firstFinishIndex: number | undefined = undefined;
 
-    // STEP 1 VALIDATIONS
+    // STEP 1 VALIDATIONS (Finishes & 4 Photos)
+    formData.finishes.forEach((f, idx) => {
+      const finishPrefix = `finishes.${idx}`;
+      if (!f.finish_name || f.finish_name.trim().length === 0) {
+        errors[`${finishPrefix}.finish_name`] = `Finish #${idx + 1} name is required.`;
+      }
+
+      if (!f.hex_code || !/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(f.hex_code)) {
+        errors[`${finishPrefix}.hex_code`] = `Finish #${idx + 1} hex color is invalid (e.g. #71797E).`;
+      }
+
+      // Only 1 image is mandatory; the other three are optional
+      const hasAnyPhoto = Boolean(
+        f.media.lifestyle?.trim() ||
+        f.media.front?.trim() ||
+        f.media.functional?.trim() ||
+        f.media.macro?.trim()
+      );
+
+      if (!hasAnyPhoto) {
+        errors[`${finishPrefix}.media.lifestyle`] = `At least one photo (Primary Lifestyle Shot) is required for finish "${f.finish_name}".`;
+        if (firstFinishIndex === undefined) {
+          firstFinishIndex = idx;
+        }
+      }
+    });
+
+    // STEP 2 VALIDATIONS (Basics & Room Placement)
     if (!formData.category_id || formData.category_id.trim() === "") {
       errors["category_id"] = "Please select a Room Department.";
     }
@@ -419,33 +565,6 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
       errors["base_price"] = "Base catalog price must be greater than ₹0.";
     }
 
-    // STEP 2 VALIDATIONS (Finishes & 4 Photos)
-    formData.finishes.forEach((f, idx) => {
-      const finishPrefix = `finishes.${idx}`;
-      if (!f.finish_name || f.finish_name.trim().length === 0) {
-        errors[`${finishPrefix}.finish_name`] = `Finish #${idx + 1} name is required.`;
-      }
-
-      if (!f.hex_code || !/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(f.hex_code)) {
-        errors[`${finishPrefix}.hex_code`] = `Finish #${idx + 1} hex color is invalid (e.g. #36454F).`;
-      }
-
-      // Only 1 image is mandatory; the other three are optional
-      const hasAnyPhoto = Boolean(
-        f.media.lifestyle?.trim() ||
-        f.media.front?.trim() ||
-        f.media.functional?.trim() ||
-        f.media.macro?.trim()
-      );
-
-      if (!hasAnyPhoto) {
-        errors[`${finishPrefix}.media.lifestyle`] = `At least one photo (Primary Lifestyle Shot) is required for finish "${f.finish_name}".`;
-        if (firstFinishIndex === undefined) {
-          firstFinishIndex = idx;
-        }
-      }
-    });
-
     // STEP 3 VALIDATIONS (Sizes & Pricing)
     formData.sizes.forEach((s, idx) => {
       const sizePrefix = `sizes.${idx}`;
@@ -462,9 +581,9 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
 
     // Determine earliest failing step
     const keys = Object.keys(errors);
-    if (keys.some((k) => ["category_id", "title_en", "slug", "tagline", "base_price"].includes(k))) {
+    if (keys.some((k) => k.startsWith("finishes"))) {
       firstStep = 1;
-    } else if (keys.some((k) => k.startsWith("finishes"))) {
+    } else if (keys.some((k) => ["category_id", "title_en", "slug", "tagline", "base_price"].includes(k))) {
       firstStep = 2;
     } else if (keys.some((k) => k.startsWith("sizes"))) {
       firstStep = 3;
@@ -491,7 +610,7 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
         message: "Please correct the specific highlighted errors below before publishing.",
       });
       setActiveStep(validation.firstStep);
-      if (validation.firstStep === 2 && validation.firstFinishIndex !== undefined) {
+      if (validation.firstStep === 1 && validation.firstFinishIndex !== undefined) {
         setSelectedFinishIndex(validation.firstFinishIndex);
       }
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -515,9 +634,9 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
 
           // Auto-navigate to step with error
           const keys = Object.keys(stringErrors);
-          if (keys.some((k) => ["category_id", "title_en", "slug", "tagline", "base_price"].includes(k))) {
+          if (keys.some((k) => k.startsWith("finishes"))) {
             setActiveStep(1);
-          } else if (keys.some((k) => k.startsWith("finishes"))) {
+          } else if (keys.some((k) => ["category_id", "title_en", "slug", "tagline", "base_price"].includes(k))) {
             setActiveStep(2);
           } else if (keys.some((k) => k.startsWith("sizes"))) {
             setActiveStep(3);
@@ -547,11 +666,11 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
       if (!isNaN(finishIdx)) {
         setSelectedFinishIndex(finishIdx);
       }
-      setActiveStep(2);
+      setActiveStep(1);
     } else if (errorKey.startsWith("sizes.")) {
       setActiveStep(3);
     } else {
-      setActiveStep(1);
+      setActiveStep(2);
     }
     window.scrollTo({ top: 120, behavior: "smooth" });
   };
@@ -732,13 +851,13 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
             </span>
           </div>
           <h1 className="text-2xl md:text-3xl font-serif font-bold text-[#18181B]">
-            {activeStep === 1 && "1. Basics & Real Room Placement"}
-            {activeStep === 2 && "2. Color Finishes & Product Photos"}
+            {activeStep === 1 && "1. Color Finishes & Product Photos"}
+            {activeStep === 2 && "2. Basics & Real Room Placement"}
             {activeStep === 3 && "3. Sizes & Smart Dimensions"}
           </h1>
           <p className="text-xs md:text-sm text-[#71717A] mt-1">
-            {activeStep === 1 && "Select verified room departments, subcategories, titles, and base price."}
-            {activeStep === 2 && "Configure color swatches and upload product photos (1 mandatory Lifestyle Shot, 3 optional)."}
+            {activeStep === 1 && "Upload your primary furniture photo (Slot 1 mandatory) — Groq AI will analyze it to auto-fill details in Step 2."}
+            {activeStep === 2 && "Review AI-detected room departments, subcategories, titles, and base price."}
             {activeStep === 3 && "Specify modular size labels and live spatial dimensions."}
           </p>
         </div>
@@ -746,8 +865,8 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
         {/* Wizard Step Selector Pills with Error Badges */}
         <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-[#18181B]/10 shadow-xs self-start md:self-auto">
           {[
-            { step: 1, label: "Basics", icon: Layers },
-            { step: 2, label: "Finishes & Photos", icon: Palette },
+            { step: 1, label: "Finishes & Photos", icon: Palette },
+            { step: 2, label: "Basics & Placement", icon: Layers },
             { step: 3, label: "Sizes & Dimensions", icon: Ruler },
           ].map((s) => {
             const Icon = s.icon;
@@ -788,9 +907,95 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
         {/* WIZARD FORM COLUMN (7 cols on Desktop)                      */}
         {/* ============================================================ */}
         <div className="lg:col-span-7 space-y-6">
-          {/* TAB 1: BASICS & ROOM PLACEMENT */}
-          {activeStep === 1 && (
+          {/* TAB 2: BASICS & ROOM PLACEMENT */}
+          {activeStep === 2 && (
             <div className="bg-white rounded-3xl border border-[#18181B]/10 p-6 md:p-8 shadow-xs space-y-6">
+              {/* AI Auto-Fill Banner Alert (Success/Error/Info) */}
+              {aiBannerMessage && (
+                <div
+                  className={`p-3.5 rounded-2xl text-xs flex items-center justify-between gap-2.5 border transition-all ${
+                    aiBannerMessage.type === "success"
+                      ? "bg-emerald-50 border-emerald-300/80 text-emerald-950"
+                      : aiBannerMessage.type === "error"
+                      ? "bg-red-50 border-red-300/80 text-red-950"
+                      : "bg-blue-50 border-blue-300/80 text-blue-950"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    {aiBannerMessage.type === "success" && (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    )}
+                    {aiBannerMessage.type === "error" && (
+                      <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                    )}
+                    {aiBannerMessage.type === "info" && (
+                      <Sparkles className="w-4 h-4 text-blue-600 shrink-0" />
+                    )}
+                    <span className="font-semibold">{aiBannerMessage.text}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAiBannerMessage(null)}
+                    className="p-1 text-current opacity-60 hover:opacity-100 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
+              {/* ✨ ONE-CLICK GROQ VISION AI AUTO-FILL HERO CARD */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-[#163826]/12 via-[#FAF8F5] to-emerald-50/40 border border-[#163826]/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-[#163826] text-emerald-400 flex items-center justify-center shrink-0 shadow-xs">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-xs font-bold text-[#18181B] uppercase tracking-wider">
+                        AI Furniture Auto-Fill
+                      </h3>
+                      <span className="text-[9px] font-mono font-semibold px-2 py-0.5 rounded-full bg-[#163826] text-emerald-300">
+                        Groq Vision
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-[#71717A] mt-0.5 leading-relaxed">
+                      Upload a photo of your steel piece to instantly detect room department, generate luxury titles, tagline, and stainless steel specs.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="shrink-0">
+                  <button
+                    type="button"
+                    disabled={isAnalyzingPhoto}
+                    onClick={() => aiFileInputRef.current?.click()}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#163826] hover:bg-[#1f4a33] text-white text-xs font-bold tracking-wide shadow-sm transition-all cursor-pointer disabled:opacity-60"
+                  >
+                    {isAnalyzingPhoto ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+                        <span>Analyzing photo...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>✨ Auto-Fill Details from Photo</span>
+                      </>
+                    )}
+                  </button>
+                  <input
+                    ref={aiFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleAiAutoFill(file);
+                    }}
+                  />
+                </div>
+              </div>
+
               {/* Recommendation Banner if entire catalog has 0 subcategories */}
               {totalSubCategoriesCount === 0 && (
                 <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200/80 text-amber-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
@@ -1109,23 +1314,81 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
                 />
               </div>
 
-              {/* Next Button */}
-              <div className="pt-4 flex justify-end">
+              {/* Navigation Actions */}
+              <div className="pt-4 flex items-center justify-between">
                 <button
                   type="button"
-                  onClick={() => setActiveStep(2)}
+                  onClick={() => setActiveStep(1)}
+                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-2xl border border-[#18181B]/15 hover:bg-[#FAF8F5] text-xs font-semibold text-[#18181B] transition-colors cursor-pointer"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  <span>Back to Finishes & Photos</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveStep(3)}
                   className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-[#18181B] hover:bg-[#9A3412] text-white text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
                 >
-                  <span>Continue to 4-Photo Blueprint</span>
+                  <span>Continue to Sizes & Dimensions</span>
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
             </div>
           )}
 
-          {/* TAB 2: FINISHES & 4-PHOTO BLUEPRINT */}
-          {activeStep === 2 && (
+          {/* TAB 1: FINISHES & 4-PHOTO BLUEPRINT */}
+          {activeStep === 1 && (
             <div className="bg-white rounded-3xl border border-[#18181B]/10 p-6 md:p-8 shadow-xs space-y-6">
+              {/* AI Auto-Fill Banner Alert (Success/Error/Info) */}
+              {aiBannerMessage && (
+                <div
+                  className={`p-3.5 rounded-2xl text-xs flex items-center justify-between gap-2.5 border transition-all ${
+                    aiBannerMessage.type === "success"
+                      ? "bg-emerald-50 border-emerald-300/80 text-emerald-950"
+                      : aiBannerMessage.type === "error"
+                      ? "bg-red-50 border-red-300/80 text-red-950"
+                      : "bg-blue-50 border-blue-300/80 text-blue-950"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    {aiBannerMessage.type === "success" && (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    )}
+                    {aiBannerMessage.type === "error" && (
+                      <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                    )}
+                    {aiBannerMessage.type === "info" && (
+                      <Sparkles className="w-4 h-4 text-blue-600 shrink-0" />
+                    )}
+                    <span className="font-semibold">{aiBannerMessage.text}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAiBannerMessage(null)}
+                    className="p-1 text-current opacity-60 hover:opacity-100 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
+              {/* Quick AI Tip / Assistant Banner */}
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-[#163826]/12 via-[#FAF8F5] to-emerald-50/40 border border-[#163826]/20 flex items-start gap-3">
+                <div className="w-8 h-8 rounded-xl bg-[#163826] text-emerald-400 flex items-center justify-center shrink-0 shadow-xs mt-0.5">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold text-[#18181B] flex items-center gap-2">
+                    <span>Groq Vision Auto-Fill Ready</span>
+                    <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-[#163826] text-emerald-300 font-semibold uppercase">
+                      One-Upload Flow
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-[#71717A] mt-0.5 leading-relaxed">
+                    Upload your furniture photo in <strong>Slot 1 (Room Lifestyle Shot)</strong> below. The photo is saved immediately to Supabase Storage, and Groq AI automatically analyzes it to fill your Room Department, Title, Tagline, and Specifications in Step 2!
+                  </p>
+                </div>
+              </div>
               {/* Finish Selector Pills + Add Button */}
               <div>
                 <div className="flex items-center justify-between mb-3">
@@ -1305,6 +1568,13 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
                             `finishes.${selectedFinishIndex}.media.macro`
                           );
                         }}
+                        onImageUploadedWithFile={(_url, file) => {
+                          if (!formData.title_en || formData.title_en.trim() === "") {
+                            handleAiAutoFill(file);
+                          }
+                        }}
+                        onAiAutoFill={handleAiAutoFill}
+                        isAnalyzingAi={isAnalyzingPhoto}
                         productSlug={formData.slug || "new-product"}
                         finishName={currentFinish.finish_name}
                         slotName="lifestyle"
@@ -1384,21 +1654,13 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
               )}
 
               {/* Navigation Actions */}
-              <div className="pt-4 flex items-center justify-between">
+              <div className="pt-4 flex justify-end">
                 <button
                   type="button"
-                  onClick={() => setActiveStep(1)}
-                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-2xl border border-[#18181B]/15 hover:bg-[#FAF8F5] text-xs font-semibold text-[#18181B] transition-colors cursor-pointer"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                  <span>Back to Basics</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveStep(3)}
+                  onClick={() => setActiveStep(2)}
                   className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-[#18181B] hover:bg-[#9A3412] text-white text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
                 >
-                  <span>Continue to Sizes & Dimensions</span>
+                  <span>Continue to Room Placement & Basics</span>
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
@@ -1464,9 +1726,12 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
                                 type="number"
                                 min={0}
                                 value={s.price > 0 ? s.price : ""}
+                                onFocus={(e) => e.target.select()}
                                 onChange={(e) => {
+                                  const raw = e.target.value;
+                                  const val = raw === "" ? 0 : Number(raw);
                                   const updated = [...formData.sizes];
-                                  updated[idx].price = Number(e.target.value) || 0;
+                                  updated[idx].price = isNaN(val) ? 0 : val;
                                   setFormData({ ...formData, sizes: updated });
                                   clearFieldError(`sizes.${idx}.price`);
                                 }}
@@ -1531,26 +1796,30 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
                             <input
                               type="number"
                               min={0}
+                              step="any"
+                              placeholder="0"
                               value={
                                 formData.blueprint_type === "bed"
-                                  ? s.dimensions.length ?? 0
+                                  ? (s.dimensions.length && s.dimensions.length > 0 ? s.dimensions.length : "")
                                   : formData.blueprint_type === "seating"
-                                  ? s.dimensions.total_height ?? 0
-                                  : s.dimensions.height ?? 0
+                                  ? (s.dimensions.total_height && s.dimensions.total_height > 0 ? s.dimensions.total_height : "")
+                                  : (s.dimensions.height && s.dimensions.height > 0 ? s.dimensions.height : "")
                               }
+                              onFocus={(e) => e.target.select()}
                               onChange={(e) => {
-                                const val = Number(e.target.value) || 0;
+                                const raw = e.target.value;
+                                const val = raw === "" ? 0 : Number(raw);
                                 const updated = [...formData.sizes];
                                 if (formData.blueprint_type === "bed") {
-                                  updated[idx].dimensions.length = val;
+                                  updated[idx].dimensions.length = isNaN(val) ? 0 : val;
                                 } else if (formData.blueprint_type === "seating") {
-                                  updated[idx].dimensions.total_height = val;
+                                  updated[idx].dimensions.total_height = isNaN(val) ? 0 : val;
                                 } else {
-                                  updated[idx].dimensions.height = val;
+                                  updated[idx].dimensions.height = isNaN(val) ? 0 : val;
                                 }
                                 setFormData({ ...formData, sizes: updated });
                               }}
-                              className="w-full px-2.5 py-1.5 rounded-lg border border-[#18181B]/15 bg-white text-xs font-mono font-semibold"
+                              className="w-full px-2.5 py-1.5 rounded-lg border border-[#18181B]/15 bg-white text-xs font-mono font-semibold focus:outline-none focus:ring-1 focus:ring-[#9A3412]"
                             />
                           </div>
 
@@ -1564,22 +1833,26 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
                             <input
                               type="number"
                               min={0}
+                              step="any"
+                              placeholder="0"
                               value={
                                 formData.blueprint_type === "seating"
-                                  ? s.dimensions.seat_height ?? 0
-                                  : s.dimensions.width ?? 0
+                                  ? (s.dimensions.seat_height && s.dimensions.seat_height > 0 ? s.dimensions.seat_height : "")
+                                  : (s.dimensions.width && s.dimensions.width > 0 ? s.dimensions.width : "")
                               }
+                              onFocus={(e) => e.target.select()}
                               onChange={(e) => {
-                                const val = Number(e.target.value) || 0;
+                                const raw = e.target.value;
+                                const val = raw === "" ? 0 : Number(raw);
                                 const updated = [...formData.sizes];
                                 if (formData.blueprint_type === "seating") {
-                                  updated[idx].dimensions.seat_height = val;
+                                  updated[idx].dimensions.seat_height = isNaN(val) ? 0 : val;
                                 } else {
-                                  updated[idx].dimensions.width = val;
+                                  updated[idx].dimensions.width = isNaN(val) ? 0 : val;
                                 }
                                 setFormData({ ...formData, sizes: updated });
                               }}
-                              className="w-full px-2.5 py-1.5 rounded-lg border border-[#18181B]/15 bg-white text-xs font-mono font-semibold"
+                              className="w-full px-2.5 py-1.5 rounded-lg border border-[#18181B]/15 bg-white text-xs font-mono font-semibold focus:outline-none focus:ring-1 focus:ring-[#9A3412]"
                             />
                           </div>
 
@@ -1595,26 +1868,30 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
                             <input
                               type="number"
                               min={0}
+                              step="any"
+                              placeholder="0"
                               value={
                                 formData.blueprint_type === "bed"
-                                  ? s.dimensions.headboard_height ?? 0
+                                  ? (s.dimensions.headboard_height && s.dimensions.headboard_height > 0 ? s.dimensions.headboard_height : "")
                                   : formData.blueprint_type === "seating"
-                                  ? s.dimensions.width ?? 0
-                                  : s.dimensions.depth ?? 0
+                                  ? (s.dimensions.width && s.dimensions.width > 0 ? s.dimensions.width : "")
+                                  : (s.dimensions.depth && s.dimensions.depth > 0 ? s.dimensions.depth : "")
                               }
+                              onFocus={(e) => e.target.select()}
                               onChange={(e) => {
-                                const val = Number(e.target.value) || 0;
+                                const raw = e.target.value;
+                                const val = raw === "" ? 0 : Number(raw);
                                 const updated = [...formData.sizes];
                                 if (formData.blueprint_type === "bed") {
-                                  updated[idx].dimensions.headboard_height = val;
+                                  updated[idx].dimensions.headboard_height = isNaN(val) ? 0 : val;
                                 } else if (formData.blueprint_type === "seating") {
-                                  updated[idx].dimensions.width = val;
+                                  updated[idx].dimensions.width = isNaN(val) ? 0 : val;
                                 } else {
-                                  updated[idx].dimensions.depth = val;
+                                  updated[idx].dimensions.depth = isNaN(val) ? 0 : val;
                                 }
                                 setFormData({ ...formData, sizes: updated });
                               }}
-                              className="w-full px-2.5 py-1.5 rounded-lg border border-[#18181B]/15 bg-white text-xs font-mono font-semibold"
+                              className="w-full px-2.5 py-1.5 rounded-lg border border-[#18181B]/15 bg-white text-xs font-mono font-semibold focus:outline-none focus:ring-1 focus:ring-[#9A3412]"
                             />
                           </div>
                         </div>
@@ -1685,7 +1962,7 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
                   className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-2xl border border-[#18181B]/15 hover:bg-[#FAF8F5] text-xs font-semibold text-[#18181B] transition-colors cursor-pointer"
                 >
                   <ChevronLeft className="w-4 h-4" />
-                  <span>Back to Finishes</span>
+                  <span>Back to Basics & Placement</span>
                 </button>
 
                 <button
@@ -1838,6 +2115,9 @@ interface PhotoSlotBoxProps {
   currentUrl?: string;
   errorMessage?: string;
   onImageSelected: (url: string) => void;
+  onImageUploadedWithFile?: (url: string, file: File) => void;
+  onAiAutoFill?: (file: File) => void;
+  isAnalyzingAi?: boolean;
   productSlug: string;
   finishName: string;
   slotName: string;
@@ -1851,6 +2131,9 @@ function PhotoSlotBox({
   currentUrl,
   errorMessage,
   onImageSelected,
+  onImageUploadedWithFile,
+  onAiAutoFill,
+  isAnalyzingAi = false,
   productSlug,
   finishName,
   slotName,
@@ -1859,11 +2142,14 @@ function PhotoSlotBox({
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [manualUrl, setManualUrl] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const aiSlotInputRef = useRef<HTMLInputElement>(null);
+  const lastUploadedFileRef = useRef<File | null>(null);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    lastUploadedFileRef.current = file;
     const oldUrl = currentUrl;
     setIsUploading(true);
     try {
@@ -1873,6 +2159,9 @@ function PhotoSlotBox({
         slotName,
       });
       onImageSelected(result.publicUrl);
+      if (onImageUploadedWithFile) {
+        onImageUploadedWithFile(result.publicUrl, file);
+      }
 
       // Prune previous image from storage if replaced
       if (oldUrl && oldUrl !== result.publicUrl) {
@@ -2005,6 +2294,49 @@ function PhotoSlotBox({
           onChange={handleFileChange}
         />
       </div>
+
+      {/* Slot 1: Groq Vision AI Auto-Fill Action */}
+      {slotIndex === 1 && onAiAutoFill && (
+        <div className="pt-1">
+          <button
+            type="button"
+            disabled={isAnalyzingAi || isUploading}
+            onClick={() => {
+              if (lastUploadedFileRef.current) {
+                onAiAutoFill(lastUploadedFileRef.current);
+              } else {
+                aiSlotInputRef.current?.click();
+              }
+            }}
+            className="w-full inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-[#163826] hover:bg-[#1f4a33] text-white text-xs font-semibold shadow-xs transition-all cursor-pointer disabled:opacity-60"
+          >
+            {isAnalyzingAi ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+                <span>Analyzing photo...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                <span>✨ Auto-Fill Details from Photo</span>
+              </>
+            )}
+          </button>
+          <input
+            ref={aiSlotInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                lastUploadedFileRef.current = file;
+                onAiAutoFill(file);
+              }
+            }}
+          />
+        </div>
+      )}
 
       {/* In-place Error Message */}
       {errorMessage && (
