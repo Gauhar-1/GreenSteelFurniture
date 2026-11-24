@@ -32,7 +32,7 @@ export function MasterCategoryEntry({
   return (
     <div
       className={cn(
-        "w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6",
+        "w-full grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6",
         className
       )}
     >
@@ -41,7 +41,7 @@ export function MasterCategoryEntry({
           key={category.slug}
           href={`/categories/${category.slug}`}
           ariaLabel={`Explore ${category.name} Collection`}
-          className="group relative w-full h-[260px] sm:h-[300px] lg:h-[340px] rounded-2xl overflow-hidden bg-[#18181B] shadow-sm hover:shadow-xl transition-all duration-300 border border-[#18181B]/10 block"
+          className="group relative w-full h-[260px] sm:h-[320px] lg:h-[380px] rounded-2xl overflow-hidden bg-[#18181B] shadow-sm hover:shadow-xl transition-all duration-300 border border-[#18181B]/10 block"
         >
           {/* Edge-to-edge lifestyle imagery with lazy load & slow network fallback */}
           <NetworkResilientImage
