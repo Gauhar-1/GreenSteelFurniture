@@ -1,7 +1,7 @@
-import Image from "next/image";
 import { ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { InteractiveLinkCard } from "@/components/ui/InteractiveLinkCard";
+import { NetworkResilientImage } from "@/components/ui/NetworkResilientImage";
 import type { MasterCategory } from "@/types/category";
 
 interface MasterCategoryEntryProps {
@@ -32,9 +32,7 @@ export function MasterCategoryEntry({
   return (
     <div
       className={cn(
-        // Mobile: vertical scrollable list with 28dvh height per card
-        // Desktop: 2x2 grid that fits precisely in available viewport space
-        "w-full flex flex-col gap-3.5 lg:grid lg:grid-cols-2 lg:grid-rows-2 lg:gap-4 lg:h-full lg:min-h-0",
+        "w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6",
         className
       )}
     >
@@ -43,10 +41,10 @@ export function MasterCategoryEntry({
           key={category.slug}
           href={`/categories/${category.slug}`}
           ariaLabel={`Explore ${category.name} Collection`}
-          className="group relative w-full h-[28dvh] min-h-[190px] lg:h-full lg:min-h-0 rounded-2xl overflow-hidden bg-[#18181B] shadow-sm hover:shadow-xl transition-all duration-300 border border-[#18181B]/10"
+          className="group relative w-full h-[260px] sm:h-[300px] lg:h-[340px] rounded-2xl overflow-hidden bg-[#18181B] shadow-sm hover:shadow-xl transition-all duration-300 border border-[#18181B]/10 block"
         >
-          {/* Edge-to-edge lifestyle imagery */}
-          <Image
+          {/* Edge-to-edge lifestyle imagery with lazy load & slow network fallback */}
+          <NetworkResilientImage
             src={category.lifestyle_image || "/hero-bedroom.png"}
             alt={category.name}
             fill

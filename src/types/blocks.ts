@@ -63,6 +63,8 @@ export const BentoSpaceCardSchema = z.object({
     "storage_almirah",
   ]).or(z.string()).optional(),
   category_id: z.string().optional(),
+  sub_category_id: z.string().optional(),
+  sub_category_slug: z.string().optional(),
 });
 
 export type BentoSpaceCard = z.infer<typeof BentoSpaceCardSchema>;

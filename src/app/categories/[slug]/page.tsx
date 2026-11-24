@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 import { CategoryPlpClient } from "@/components/category/CategoryPlpClient";
 import { CatalogGridSkeleton } from "@/components/catalog/CatalogGridSkeleton";
@@ -11,6 +11,10 @@ export const revalidate = 3600;
 interface CategorySlugPageProps {
   params: Promise<{
     slug: string;
+  }>;
+  searchParams?: Promise<{
+    sub?: string;
+    subcategory?: string;
   }>;
 }
 
@@ -59,21 +63,36 @@ export async function generateMetadata({
  */
 export default async function CategorySlugPage({
   params,
+  searchParams,
 }: CategorySlugPageProps) {
   const { slug } = await params;
-  const category = await CategoryService.getMasterCategoryBySlug(slug);
+  const sParams = searchParams ? await searchParams : {};
+  const requestedSub = sParams?.sub || sParams?.subcategory || "all";
+
+  let category = await CategoryService.getMasterCategoryBySlug(slug);
 
   if (!category) {
+    // Check if the slug belongs directly to a child category (has parent_id)
+    const allCategories = await CategoryService.getAllCategories();
+    const childCat = allCategories.find((c) => c.slug === slug);
+    if (childCat && childCat.parent_id) {
+      const parentCat = allCategories.find((c) => c.id === childCat.parent_id);
+      if (parentCat) {
+        redirect(`/categories/${parentCat.slug}?sub=${childCat.slug}`);
+      }
+    }
     notFound();
   }
 
   const categoryProducts = await ProductService.getProductsByCategorySlug(slug);
 
   return (
-    <Suspense fallback={<CatalogGridSkeleton count={6} />}>
+    <Suspense fallback={<CatalogGridSkeleton count={8} />}>
       <CategoryPlpClient
+        key={`${slug}-${requestedSub}`}
         category={category}
         products={categoryProducts}
+        initialSubCategory={requestedSub}
       />
     </Suspense>
   );

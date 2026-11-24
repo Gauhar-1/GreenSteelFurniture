@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
+import { NetworkResilientImage } from "@/components/ui/NetworkResilientImage";
 import {
   ArrowRight,
   Check,
@@ -13,8 +13,10 @@ import {
   Flame,
   CheckCircle2,
   XCircle,
+  Maximize2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ImageZoomLightbox } from "@/components/ui/ImageZoomLightbox";
 import type { WallColorMatcherBlockData, WallColorOption } from "@/types/blocks";
 
 interface WallColorMatcherProps {
@@ -33,6 +35,7 @@ interface WallColorMatcherProps {
 export function WallColorMatcher({ data, className }: WallColorMatcherProps) {
   const combinations: WallColorOption[] = data?.combinations || [];
   const [activeWallColor, setActiveWallColor] = useState<string>(() => combinations[0]?.id || "");
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
   if (!combinations || combinations.length === 0) {
     return (
@@ -85,16 +88,22 @@ export function WallColorMatcher({ data, className }: WallColorMatcherProps) {
 
           {/* 50/50 Split View */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-14 items-center">
-            {/* Left / Top: Active Visual Stage with Smooth Cross-Fade */}
-            <div className="relative w-full aspect-[4/5] max-h-[560px] rounded-3xl overflow-hidden bg-[#18181B] border border-white/10 shadow-2xl">
+            {/* Left / Top: Active Visual Stage with Smooth Cross-Fade & Zoom Lightbox */}
+            <div 
+              onClick={() => hasImage && setIsLightboxOpen(true)}
+              className={cn(
+                "group/stage relative w-full aspect-[4/5] max-h-[560px] rounded-3xl overflow-hidden bg-[#18181B] border border-white/10 shadow-2xl transition-all duration-300",
+                hasImage && "cursor-zoom-in hover:border-white/30"
+              )}
+            >
               {hasImage ? (
-                <Image
+                <NetworkResilientImage
                   key={currentOption.id}
                   src={currentOption.image}
                   alt={`${currentOption.wallName} with mirror stainless steel`}
                   fill
                   sizes="(max-width: 1024px) 100vw, 50vw"
-                  className="object-cover object-center transition-opacity duration-500 ease-out"
+                  className="object-cover object-center transition-transform duration-700 ease-out group-hover/stage:scale-105"
                   priority={false}
                 />
               ) : (
@@ -118,6 +127,22 @@ export function WallColorMatcher({ data, className }: WallColorMatcherProps) {
                   <span>{currentOption.wallName}</span>
                 </span>
               </div>
+
+              {/* Corner Zoom Hint Pill */}
+              {hasImage && (
+                <button
+                  type="button"
+                  aria-label="Inspect finish up close"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsLightboxOpen(true);
+                  }}
+                  className="absolute top-4 right-4 z-10 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white bg-[#121214]/85 hover:bg-[#121214] backdrop-blur-md border border-white/20 shadow-lg transition-all duration-200 cursor-pointer group-hover/stage:scale-105"
+                >
+                  <Maximize2 className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Zoom</span>
+                </button>
+              )}
 
               {/* Bottom Caption Scrim */}
               <div className="absolute inset-x-0 bottom-0 p-5 sm:p-6 bg-gradient-to-t from-[#121214] via-[#121214]/60 to-transparent text-white pointer-events-none">
@@ -355,6 +380,15 @@ export function WallColorMatcher({ data, className }: WallColorMatcherProps) {
           </div>
         )}
       </div>
+
+      {/* Full-Screen Zoom Lightbox Modal */}
+      <ImageZoomLightbox
+        isOpen={isLightboxOpen}
+        onClose={() => setIsLightboxOpen(false)}
+        imageUrl={currentOption?.image || ""}
+        alt={currentOption?.wallName || "Material Finish"}
+        caption={`${currentOption?.wallName || "Signature Steel Pairing"}${currentOption?.advice ? ` • ${currentOption.advice}` : ""}`}
+      />
     </section>
   );
 }

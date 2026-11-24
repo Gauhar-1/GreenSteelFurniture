@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useRef, useState, useMemo, useCallback } from "react";
-import Image from "next/image";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Maximize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { VisualDimensionGuide } from "./VisualDimensionGuide";
 import { BlueprintScaleChart } from "./BlueprintScaleChart";
+import { ImageZoomLightbox } from "@/components/ui/ImageZoomLightbox";
+import { NetworkResilientImage } from "@/components/ui/NetworkResilientImage";
 import { resolveBlueprintType, BLUEPRINT_TYPES, type BlueprintType } from "@/lib/blueprintUtils";
 import type { CategoryTheme } from "@/lib/categoryThemes";
 import type { ProductCatalogItem } from "@/services/ProductService";
@@ -68,6 +69,7 @@ export function VisualStage({
   onModeChange,
 }: VisualStageProps) {
   const [internalModeId, setInternalModeId] = useState<string>("lifestyle");
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const activeModeId = propActiveModeId !== undefined ? propActiveModeId : internalModeId;
 
   const handleSetModeId = useCallback(
@@ -375,6 +377,22 @@ export function VisualStage({
         </span>
       </div>
 
+      {/* Top-Right Floating Zoom Button (Active on Image Slides) */}
+      {!activeModeItem.isSvg && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsLightboxOpen(true);
+          }}
+          className="absolute top-3 right-3 sm:top-4 sm:right-4 z-20 flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-semibold bg-black/65 hover:bg-black/85 text-white backdrop-blur-md border border-white/20 shadow-md transition-all hover:scale-105 active:scale-95 cursor-pointer touch-manipulation"
+          title="Zoom & Inspect High-Res Details"
+        >
+          <Maximize2 className="w-3.5 h-3.5 text-white/90" />
+          <span className="hidden sm:inline">Zoom</span>
+        </button>
+      )}
+
       {/* Main Continuous Sliding Track Frame */}
       <div className="relative w-full flex-1 overflow-hidden min-h-0 flex items-center justify-center">
         <div
@@ -395,7 +413,7 @@ export function VisualStage({
               aria-hidden={activeModeIndex !== idx}
             >
               {mode.isSvg ? (
-                <div className="w-full h-full max-h-[70vh] flex items-center justify-center p-2 sm:p-4 pointer-events-auto overflow-y-auto">
+                <div className="w-full h-full min-h-[320px] sm:min-h-[380px] max-h-[75vh] flex items-center justify-center p-1 sm:p-4 pointer-events-auto overflow-y-auto">
                   {hasProductBlueprint ? (
                     <BlueprintScaleChart
                       blueprintType={resolvedBlueprint}
@@ -419,15 +437,23 @@ export function VisualStage({
                   )}
                 </div>
               ) : (
-                <div className="relative w-full h-full max-h-[70vh] flex items-center justify-center p-2">
-                  <Image
+                <div
+                  onClick={() => {
+                    if (Math.abs(dragOffset) < 5) {
+                      setIsLightboxOpen(true);
+                    }
+                  }}
+                  className="relative w-full h-full max-h-[70vh] flex items-center justify-center p-2 cursor-zoom-in"
+                  title="Click to Zoom Fullscreen"
+                >
+                  <NetworkResilientImage
                     src={mode.media || "/hero-bedroom.png"}
                     alt={`${productTitle} - ${mode.label}`}
                     fill
-                    priority={idx === 0 || idx === activeModeIndex}
+                    priority={idx === 0}
                     draggable={false}
                     sizes="(max-width: 1024px) 100vw, 60vw"
-                    className="object-contain object-center pointer-events-none select-none"
+                    className="object-contain object-center select-none"
                   />
                 </div>
               )}
@@ -527,6 +553,17 @@ export function VisualStage({
             </span>
           </div>
         </div>
+      )}
+
+      {/* High-Resolution Full-Screen Image Zoom Lightbox */}
+      {!activeModeItem.isSvg && (
+        <ImageZoomLightbox
+          isOpen={isLightboxOpen}
+          onClose={() => setIsLightboxOpen(false)}
+          imageUrl={activeModeItem.media || "/hero-bedroom.png"}
+          alt={`${productTitle} - ${activeModeItem.label}`}
+          caption={`${productTitle} — ${activeModeItem.label} in ${finishName}`}
+        />
       )}
     </div>
   );

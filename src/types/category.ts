@@ -6,6 +6,7 @@ import { z } from "zod";
 export const SubCategorySchema = z.object({
   id: z.string(),
   label: z.string(),
+  slug: z.string().optional(),
 });
 
 export type SubCategory = z.infer<typeof SubCategorySchema>;

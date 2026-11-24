@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { InteractiveLinkCard } from "@/components/ui/InteractiveLinkCard";
+import { NetworkResilientImage } from "@/components/ui/NetworkResilientImage";
 import type { CategoryProduct } from "@/types/category";
 
 export interface PremiumProductCardData extends Partial<CategoryProduct> {
@@ -79,7 +79,7 @@ export function PremiumCatalogCard({
     >
       {/* Image Area: aspect-[4/5] bounded frame */}
       <div className="aspect-[4/5] relative w-full overflow-hidden rounded-xl bg-[#F4F4F5]">
-        <Image
+        <NetworkResilientImage
           src={previewImage || product.lifestyle_image || "/hero-bedroom.png"}
           alt={product.title}
           fill

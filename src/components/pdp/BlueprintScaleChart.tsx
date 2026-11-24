@@ -101,7 +101,7 @@ export function BlueprintScaleChart({
     <div
       className={cn(
         "w-full rounded-2xl bg-[#FAF8F5] text-[#18181B] border border-[#18181B]/10 select-none overflow-hidden transition-all",
-        compact ? "p-2.5 sm:p-3 shadow-2xs" : "p-4 sm:p-5 shadow-xs",
+        compact ? "p-2.5 sm:p-3 shadow-2xs" : "p-3 sm:p-5 shadow-xs",
         className
       )}
     >
@@ -147,42 +147,42 @@ export function BlueprintScaleChart({
           </div>
         </div>
       ) : (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#18181B]/10">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2.5 sm:pb-3 border-b border-[#18181B]/10 w-full">
           <div className="flex items-center gap-2 flex-wrap">
             <div className="w-2.5 h-2.5 rounded-full bg-[#9A3412] shrink-0" />
             <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-mono font-bold tracking-[0.2em] text-[#18181B] uppercase">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                <span className="text-xs font-mono font-bold tracking-[0.15em] sm:tracking-[0.2em] text-[#18181B] uppercase">
                   Architectural Scale Chart
                 </span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white text-[#9A3412] font-bold border border-[#18181B]/10 shadow-2xs">
+                <span className="text-[9px] sm:text-[10px] font-mono px-2 py-0.5 rounded-full bg-white text-[#9A3412] font-bold border border-[#18181B]/10 shadow-2xs">
                   1 : 1 Proportions
                 </span>
               </div>
-              <p className="text-[11px] text-[#71717A] mt-0.5">
-                True-to-life elevations compared with a 5&apos;8&quot; (68 in) human scale
+              <p className="text-[10px] sm:text-[11px] text-[#71717A] mt-0.5">
+                True-to-life elevations compared with a 5&apos;8&quot; human scale
               </p>
             </div>
           </div>
 
           {/* Unit Toggle & Reference Pill */}
-          <div className="flex items-center gap-2 self-start sm:self-auto">
+          <div className="flex items-center gap-1.5 sm:gap-2 self-start sm:self-auto flex-wrap">
             {!hasExactDims && (
               <span
                 title="Dimensions inferred from architectural standards"
-                className="inline-flex items-center gap-1 text-[10px] font-mono text-[#9A3412] bg-[#9A3412]/10 border border-[#9A3412]/20 px-2 py-0.5 rounded-md"
+                className="inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-mono text-[#9A3412] bg-[#9A3412]/10 border border-[#9A3412]/20 px-1.5 sm:px-2 py-0.5 rounded-md"
               >
-                <Info className="w-3 h-3" />
+                <Info className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                 <span>Estimated</span>
               </span>
             )}
 
-            <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white border border-[#18181B]/10 text-[10px] font-mono font-semibold text-[#71717A] shadow-2xs">
+            <span className="hidden xs:inline-flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-full bg-white border border-[#18181B]/10 text-[9px] sm:text-[10px] font-mono font-semibold text-[#71717A] shadow-2xs">
               <span className="w-1.5 h-1.5 rounded-full bg-[#18181B]/50" />
               <span>5&apos;8&quot; Silhouette</span>
             </span>
 
-            <div className="inline-flex p-0.5 rounded-xl bg-white border border-[#18181B]/10 text-[10px] font-mono font-bold shadow-2xs">
+            <div className="inline-flex p-0.5 rounded-xl bg-white border border-[#18181B]/10 text-[9px] sm:text-[10px] font-mono font-bold shadow-2xs">
               <button
                 type="button"
                 onClick={(e) => {
@@ -190,7 +190,7 @@ export function BlueprintScaleChart({
                   setUnit("ft");
                 }}
                 className={cn(
-                  "px-2.5 py-1 rounded-lg transition-all cursor-pointer",
+                  "px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg transition-all cursor-pointer",
                   unit === "ft"
                     ? "bg-[#18181B] text-white shadow-xs"
                     : "text-[#71717A] hover:text-[#18181B]"
@@ -205,7 +205,7 @@ export function BlueprintScaleChart({
                   setUnit("in");
                 }}
                 className={cn(
-                  "px-2.5 py-1 rounded-lg transition-all cursor-pointer",
+                  "px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg transition-all cursor-pointer",
                   unit === "in"
                     ? "bg-[#18181B] text-white shadow-xs"
                     : "text-[#71717A] hover:text-[#18181B]"
@@ -224,12 +224,12 @@ export function BlueprintScaleChart({
       <div
         className={cn(
           "relative w-full bg-[#F6F3EC] rounded-xl border border-[#18181B]/8 overflow-hidden",
-          compact ? "mt-2 aspect-16/10" : "mt-3 aspect-2/1 sm:aspect-21/9"
+          compact ? "mt-2 aspect-16/10" : "mt-2.5 aspect-16/10 sm:aspect-21/9"
         )}
       >
         <svg
           viewBox={`0 0 ${canvasW} ${canvasH}`}
-          className="w-full h-full"
+          className="w-full h-auto max-h-[240px] sm:max-h-[320px]"
           preserveAspectRatio="xMidYMid meet"
         >
           <defs>
@@ -902,22 +902,22 @@ export function BlueprintScaleChart({
           </span>
         </div>
       ) : (
-        <div className="flex flex-wrap items-center justify-between gap-2.5 pt-3 mt-1 text-[11px] font-mono border-t border-[#18181B]/10">
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 sm:pt-3 mt-1 text-[10px] sm:text-[11px] font-mono border-t border-[#18181B]/10">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[#71717A]">Dimensions:</span>
-            <span className="font-bold text-[#18181B] bg-white border border-[#18181B]/10 px-2 py-0.5 rounded-md shadow-2xs">
+            <span className="text-[#71717A]">Dims:</span>
+            <span className="font-bold text-[#18181B] bg-white border border-[#18181B]/10 px-1.5 sm:px-2 py-0.5 rounded-md shadow-2xs">
               H: {formatDimension(heightIn, unit)}
             </span>
-            <span className="font-bold text-[#18181B] bg-white border border-[#18181B]/10 px-2 py-0.5 rounded-md shadow-2xs">
+            <span className="font-bold text-[#18181B] bg-white border border-[#18181B]/10 px-1.5 sm:px-2 py-0.5 rounded-md shadow-2xs">
               W: {formatDimension(widthIn, unit)}
             </span>
-            <span className="font-bold text-[#18181B] bg-white border border-[#18181B]/10 px-2 py-0.5 rounded-md shadow-2xs">
+            <span className="font-bold text-[#18181B] bg-white border border-[#18181B]/10 px-1.5 sm:px-2 py-0.5 rounded-md shadow-2xs">
               D: {formatDimension(depthIn, unit)}
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="text-[#9A3412] font-semibold flex items-center gap-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="text-[#9A3412] font-semibold text-[10px] sm:text-[11px]">
               <span>
                 {isJhula
                   ? "Recommended Swing Clearance: 3 ft front & back"
@@ -925,7 +925,7 @@ export function BlueprintScaleChart({
               </span>
             </div>
 
-            <div className="hidden md:flex items-center gap-1 text-[#71717A]">
+            <div className="hidden lg:flex items-center gap-1 text-[#71717A]">
               <span>•</span>
               <span>Laser-measured precision steel fabrication.</span>
             </div>

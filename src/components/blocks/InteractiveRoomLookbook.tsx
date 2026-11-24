@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, Maximize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ImageZoomLightbox } from "@/components/ui/ImageZoomLightbox";
+import { NetworkResilientImage } from "@/components/ui/NetworkResilientImage";
 import type { InteractiveRoomLookbookBlockData } from "@/types/blocks";
 
 interface InteractiveRoomLookbookProps {
@@ -23,6 +24,7 @@ interface InteractiveRoomLookbookProps {
 export function InteractiveRoomLookbook({ data, className }: InteractiveRoomLookbookProps) {
   const { title, rooms = [] } = data;
   const [activeRoomIndex, setActiveRoomIndex] = useState(0);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
   if (!rooms || rooms.length === 0) {
     return (
@@ -90,15 +92,21 @@ export function InteractiveRoomLookbook({ data, className }: InteractiveRoomLook
       {/* 60/40 Split View */}
       <div className="flex flex-col lg:flex-row gap-6 sm:gap-8 items-stretch">
         {/* Left: 60% Large Lifestyle Showcase Photo (Natural, Unobstructed) */}
-        <div className="lg:w-[60%] w-full relative min-h-[360px] sm:min-h-[460px] lg:min-h-[560px] rounded-2xl overflow-hidden bg-[#EDE9E1] shadow-xs flex items-center justify-center">
+        <div 
+          onClick={() => hasLifestyleImage && setIsLightboxOpen(true)}
+          className={cn(
+            "lg:w-[60%] w-full relative min-h-[360px] sm:min-h-[460px] lg:min-h-[560px] rounded-2xl overflow-hidden bg-[#EDE9E1] shadow-xs flex items-center justify-center group/lookbook transition-all duration-300",
+            hasLifestyleImage && "cursor-zoom-in hover:shadow-md"
+          )}
+        >
           {hasLifestyleImage ? (
-            <Image
+            <NetworkResilientImage
               key={activeRoom.id}
               src={activeRoom.lifestyleImageUrl}
               alt={activeRoom.lifestyleImageAlt || `${activeRoom.tabLabel} furniture set`}
               fill
               sizes="(max-width: 1024px) 100vw, 60vw"
-              className="object-cover object-center transition-opacity duration-500"
+              className="object-cover object-center transition-transform duration-700 ease-out group-hover/lookbook:scale-105"
             />
           ) : (
             <div className="text-center p-6 text-[#71717A] text-xs sm:text-sm">
@@ -107,11 +115,27 @@ export function InteractiveRoomLookbook({ data, className }: InteractiveRoomLook
           )}
 
           {/* Minimal Clean Room Tag */}
-          <div className="absolute top-4 left-4 z-10">
+          <div className="absolute top-4 left-4 z-10 pointer-events-none">
             <span className="px-3.5 py-1.5 rounded-full text-xs font-medium text-[#18181B] bg-white/90 backdrop-blur-md shadow-xs">
               {activeRoom.tabLabel} Set
             </span>
           </div>
+
+          {/* Top-Right Full View Zoom Button */}
+          {hasLifestyleImage && (
+            <button
+              type="button"
+              aria-label="View room set in full screen"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsLightboxOpen(true);
+              }}
+              className="absolute top-4 right-4 z-10 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-[#18181B] bg-white/90 hover:bg-white backdrop-blur-md border border-black/10 shadow-xs transition-all duration-200 cursor-pointer group-hover/lookbook:scale-105"
+            >
+              <Maximize2 className="w-3.5 h-3.5 text-[#9A3412]" />
+              <span>Full View</span>
+            </button>
+          )}
         </div>
 
         {/* Right: 40% Matching Furniture Pieces on Clean Warm Off-White Cards */}
@@ -133,7 +157,7 @@ export function InteractiveRoomLookbook({ data, className }: InteractiveRoomLook
                   {/* Isolated Product Image Thumbnail */}
                   <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden bg-[#FAF8F5] shrink-0 border border-black/5 p-1.5 flex items-center justify-center">
                     {hasProductImage ? (
-                      <Image
+                      <NetworkResilientImage
                         src={item.imageUrl}
                         alt={item.title}
                         fill
@@ -183,6 +207,15 @@ export function InteractiveRoomLookbook({ data, className }: InteractiveRoomLook
           </div>
         </div>
       </div>
+
+      {/* Full-Screen Zoom Lightbox Modal */}
+      <ImageZoomLightbox
+        isOpen={isLightboxOpen}
+        onClose={() => setIsLightboxOpen(false)}
+        imageUrl={activeRoom?.lifestyleImageUrl || ""}
+        alt={activeRoom?.tabLabel || "Curated Room Showcase"}
+        caption={`${activeRoom?.tabLabel || "Architectural"} Complete Room Collection Set`}
+      />
     </section>
   );
 }

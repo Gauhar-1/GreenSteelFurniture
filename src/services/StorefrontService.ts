@@ -460,12 +460,46 @@ export class StorefrontService {
           const hydratedCards: BentoSpaceCard[] = rawCards.map((card: any, idx: number) => {
             const catId = card.category_id;
             const liveCat = (catId && liveCategoriesMap.get(catId)) || (card.slug && liveCategoriesBySlug.get(card.slug));
+            const subCatId = card.sub_category_id;
+            const liveSubCat = (subCatId && liveCategoriesMap.get(subCatId)) || (card.sub_category_slug && liveCategoriesBySlug.get(card.sub_category_slug));
 
             // Sole source of truth for name, subtitle, image, and slug is the live Category record
-            const title = liveCat ? (liveCat.name_en || "Collection Space") : (card.title || "Collection Space");
-            const subtitle = liveCat ? (liveCat.subtitle || "") : (card.subtitle || "");
-            const href = liveCat ? `/categories/${liveCat.slug}` : (card.href || card.link || "/categories");
-            const imageUrl = (liveCat && liveCat.cover_image) ? liveCat.cover_image : (card.imageUrl || card.image || "");
+            const title = liveSubCat
+              ? liveSubCat.name_en
+              : liveCat
+              ? (liveCat.name_en || "Collection Space")
+              : (card.title || "Collection Space");
+
+            const subtitle = liveSubCat
+              ? (liveSubCat.subtitle || "")
+              : liveCat
+              ? (liveCat.subtitle || "")
+              : (card.subtitle || "");
+
+            // Parent/child category URL resolution:
+            // 1. If explicit sub_category is linked: /categories/${liveCat.slug}?sub=${liveSubCat.slug}
+            // 2. If liveCat itself has a parent_id, it is a child category: /categories/${parent.slug}?sub=${liveCat.slug}
+            // 3. If liveCat has no parent_id, it is a master/parent category: /categories/${liveCat.slug}
+            let href = "/categories";
+            if (liveSubCat && liveCat) {
+              href = `/categories/${liveCat.slug}?sub=${liveSubCat.slug}`;
+            } else if (liveCat) {
+              if (liveCat.parent_id && liveCategoriesMap.has(liveCat.parent_id)) {
+                const parentCat = liveCategoriesMap.get(liveCat.parent_id)!;
+                href = `/categories/${parentCat.slug}?sub=${liveCat.slug}`;
+              } else {
+                href = `/categories/${liveCat.slug}`;
+              }
+            } else if (card.href || card.link) {
+              href = card.href || card.link;
+            }
+
+            const imageUrl = (liveSubCat && liveSubCat.cover_image)
+              ? liveSubCat.cover_image
+              : (liveCat && liveCat.cover_image)
+              ? liveCat.cover_image
+              : (card.imageUrl || card.image || "");
+
             const gridSpan = card.gridSpan || (
               idx === 0 ? "master_bedroom" :
               idx === 1 ? "living_hall" :
@@ -483,6 +517,8 @@ export class StorefrontService {
               imageAlt: card.imageAlt || `${title} pure steel furniture`,
               gridSpan,
               category_id: liveCat?.id || catId,
+              sub_category_id: liveSubCat?.id || subCatId,
+              sub_category_slug: liveSubCat?.slug || card.sub_category_slug,
             };
           });
 

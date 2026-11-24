@@ -223,9 +223,14 @@ export function ProductDetailView({
 
       {/* MOBILE SHOWROOM (< lg) */}
       <div className="flex lg:hidden flex-col w-full">
-        {/* Top Viewport Stage: Sticky 48dvh */}
+        {/* Top Viewport Stage: Sticky 48dvh, or natural height for scale blueprint */}
         <div
-          className="h-[48dvh] min-h-[300px] max-h-[460px] sticky top-14 z-20 border-b border-black/8 shadow-2xs"
+          className={cn(
+            "sticky top-14 z-20 border-b border-black/8 shadow-2xs transition-all duration-300",
+            activeVisualMode === "size-chart"
+              ? "h-auto min-h-[340px] sm:min-h-[440px]"
+              : "h-[48dvh] min-h-[300px] max-h-[460px]"
+          )}
           style={{ backgroundColor: theme.bgSurface }}
         >
           <VisualStage

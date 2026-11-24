@@ -113,6 +113,7 @@ export class CategoryService {
         .filter((c) => Boolean(parent.id) && c.parent_id === parent.id)
         .map((s) => ({
           id: s.id || s.slug,
+          slug: s.slug,
           label: s.name_en,
         }));
 
@@ -151,6 +152,7 @@ export class CategoryService {
           .filter((c) => Boolean(parent.id) && c.parent_id === parent.id)
           .map((s) => ({
             id: s.id || s.slug,
+            slug: s.slug,
             label: s.name_en,
           }));
 

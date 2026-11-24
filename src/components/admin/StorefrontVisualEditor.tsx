@@ -151,42 +151,80 @@ export function StorefrontVisualEditor({
   const [bentoTitle, setBentoTitle] = useState<string>(
     bentoContent.title || "Designed for Every Space"
   );
-  const [selectedBentoCategoryIds, setSelectedBentoCategoryIds] = useState<string[]>(() => {
+
+  interface BentoCardConfig {
+    id: string;
+    category_id: string;
+    sub_category_id?: string;
+  }
+
+  const [bentoCards, setBentoCards] = useState<BentoCardConfig[]>(() => {
     if (Array.isArray(bentoContent.cards) && bentoContent.cards.length > 0) {
       const fromCards = bentoContent.cards
-        .map((c: any) => c.category_id || categories.find((cat) => cat.slug === c.slug)?.id)
-        .filter((id: unknown): id is string => typeof id === "string" && id.length > 0);
+        .map((c: any, i: number) => {
+          const catId = c.category_id || categories.find((cat) => cat.slug === c.slug)?.id;
+          if (!catId) return null;
+          return {
+            id: c.id || `card-${catId}-${i}`,
+            category_id: catId,
+            sub_category_id: c.sub_category_id,
+          };
+        })
+        .filter((c: any): c is BentoCardConfig => Boolean(c));
       if (fromCards.length > 0) return fromCards;
     }
-    // Default to the first 5 live categories
-    return categories
+    // Default to the first 5 live parent categories
+    const parents = categories.filter((c) => !c.parent_id);
+    const chosen = parents.length > 0 ? parents : categories;
+    return chosen
       .slice(0, 5)
-      .map((c) => c.id)
-      .filter((id: unknown): id is string => typeof id === "string" && id.length > 0);
+      .map((c, i) => ({
+        id: `card-${c.id}-${i}`,
+        category_id: c.id!,
+        sub_category_id: undefined,
+      }))
+      .filter((c) => Boolean(c.category_id));
   });
 
-  const handleMoveBentoCategory = (index: number, direction: "up" | "down") => {
+  const handleMoveBentoCard = (index: number, direction: "up" | "down") => {
     const targetIndex = direction === "up" ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= selectedBentoCategoryIds.length) return;
-    const updated = [...selectedBentoCategoryIds];
+    if (targetIndex < 0 || targetIndex >= bentoCards.length) return;
+    const updated = [...bentoCards];
     const [moved] = updated.splice(index, 1);
     updated.splice(targetIndex, 0, moved);
-    setSelectedBentoCategoryIds(updated);
+    setBentoCards(updated);
   };
 
-  const handleRemoveBentoCategory = (catId: string) => {
-    setSelectedBentoCategoryIds((prev) => prev.filter((id) => id !== catId));
+  const handleRemoveBentoCard = (index: number) => {
+    setBentoCards((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleAddBentoCategory = (catId: string) => {
-    if (!selectedBentoCategoryIds.includes(catId)) {
-      setSelectedBentoCategoryIds((prev) => [...prev, catId]);
-    }
+  const handleUpdateBentoCard = (index: number, updates: Partial<BentoCardConfig>) => {
+    setBentoCards((prev) =>
+      prev.map((c, i) => (i === index ? { ...c, ...updates } : c))
+    );
   };
+
+  const handleAddBentoCard = (catId: string) => {
+    setBentoCards((prev) => [
+      ...prev,
+      {
+        id: `card-${catId}-${Date.now()}`,
+        category_id: catId,
+        sub_category_id: undefined,
+      },
+    ]);
+  };
+
+  const parentCategories = useMemo(() => {
+    const parents = categories.filter((c) => !c.parent_id);
+    return parents.length > 0 ? parents : categories;
+  }, [categories]);
 
   const unselectedCategories = useMemo(() => {
-    return categories.filter((c) => Boolean(c.id && !selectedBentoCategoryIds.includes(c.id)));
-  }, [categories, selectedBentoCategoryIds]);
+    const selectedCatIds = bentoCards.map((c) => c.category_id);
+    return parentCategories.filter((c) => Boolean(c.id && !selectedCatIds.includes(c.id)));
+  }, [parentCategories, bentoCards]);
 
   // 3. WALL / STYLE & MATERIAL MATCHER STATE
   const wallContent = wallInitial?.content || {};
@@ -368,8 +406,12 @@ export function StorefrontVisualEditor({
           "asymmetric_spaces_bento",
           {
             title: bentoTitle,
-            cards: selectedBentoCategoryIds.map((catId, idx) => {
-              const cat = categories.find((c) => c.id === catId);
+            cards: bentoCards.map((card, idx) => {
+              const cat = categories.find((c) => c.id === card.category_id);
+              const subCat = card.sub_category_id
+                ? categories.find((c) => c.id === card.sub_category_id)
+                : undefined;
+
               const gridSpan =
                 idx === 0
                   ? "master_bedroom"
@@ -383,14 +425,40 @@ export function StorefrontVisualEditor({
                   ? "storage_almirah"
                   : "standard";
 
+              // Parent/child resolution for clean routing
+              let href = "/categories";
+              let title = cat?.name_en || "Category Space";
+              let subtitle = cat?.subtitle || "";
+              let imageUrl = cat?.cover_image || "";
+
+              if (subCat && cat) {
+                href = `/categories/${cat.slug}?sub=${subCat.slug}`;
+                title = subCat.name_en;
+                subtitle = subCat.subtitle || "";
+                imageUrl = subCat.cover_image || imageUrl;
+              } else if (cat) {
+                if (cat.parent_id) {
+                  const parentCat = categories.find((c) => c.id === cat.parent_id);
+                  if (parentCat) {
+                    href = `/categories/${parentCat.slug}?sub=${cat.slug}`;
+                  } else {
+                    href = `/categories/${cat.slug}`;
+                  }
+                } else {
+                  href = `/categories/${cat.slug}`;
+                }
+              }
+
               return {
-                id: `card-${catId}`,
-                category_id: catId,
+                id: card.id || `card-${card.category_id}-${idx}`,
+                category_id: card.category_id,
+                sub_category_id: subCat?.id,
+                sub_category_slug: subCat?.slug,
                 gridSpan,
-                title: cat?.name_en || "Category Space",
-                subtitle: cat?.subtitle || "",
-                imageUrl: cat?.cover_image || "",
-                href: cat ? `/categories/${cat.slug}` : "/categories",
+                title,
+                subtitle,
+                imageUrl,
+                href,
               };
             }),
           },
@@ -971,10 +1039,10 @@ export function StorefrontVisualEditor({
             <div className="flex items-center justify-between flex-wrap gap-4 pb-4 border-b border-[#18181B]/10">
               <div>
                 <span className="text-xs font-bold uppercase tracking-wider text-[#18181B] block mb-1">
-                  Landing Page Categories Bento ({selectedBentoCategoryIds.length} Selected)
+                  Landing Page Categories Bento ({bentoCards.length} Selected)
                 </span>
                 <p className="text-xs text-[#71717A]">
-                  Select the categories to show on the Landing Page and use the arrow buttons to arrange their order.
+                  Select the categories and optional sub-categories to feature on the Landing Page bento grid.
                 </p>
               </div>
 
@@ -998,14 +1066,19 @@ export function StorefrontVisualEditor({
                 Categories Displayed on Landing Page (in order):
               </span>
 
-              {selectedBentoCategoryIds.length === 0 ? (
+              {bentoCards.length === 0 ? (
                 <div className="p-8 text-center text-xs text-[#71717A] bg-[#FAF8F5] rounded-2xl border border-dashed border-[#18181B]/15">
                   No categories selected yet. Add categories below to display them on the landing page bento grid.
                 </div>
               ) : (
-                <div className="space-y-2.5">
-                  {selectedBentoCategoryIds.map((catId, idx) => {
-                    const cat = categories.find((c) => c.id === catId);
+                <div className="space-y-3">
+                  {bentoCards.map((card, idx) => {
+                    const cat = categories.find((c) => c.id === card.category_id);
+                    const subCat = card.sub_category_id
+                      ? categories.find((c) => c.id === card.sub_category_id)
+                      : undefined;
+                    const availableSubs = categories.filter((c) => c.parent_id === card.category_id);
+
                     const positionLabel =
                       idx === 0
                         ? "Master Featured (Span 7 • Tall)"
@@ -1015,42 +1088,30 @@ export function StorefrontVisualEditor({
                         ? "Bottom Accent (Span 5 • Wide)"
                         : `Standard Row Card #${idx + 1} (Span 6)`;
 
-                    if (!cat) {
-                      return (
-                        <div
-                          key={catId}
-                          className="p-3.5 rounded-2xl border border-dashed border-[#18181B]/15 bg-[#FAF8F5]/40 flex items-center justify-between gap-3 text-xs text-[#71717A]"
-                        >
-                          <span className="italic">Category ID ({catId.slice(0, 12)}...) not found in catalog</span>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveBentoCategory(catId)}
-                            className="text-xs text-red-600 hover:text-red-800 p-1 cursor-pointer flex items-center gap-1"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            <span>Remove</span>
-                          </button>
-                        </div>
-                      );
-                    }
+                    const activeImg = subCat?.cover_image || cat?.cover_image;
+                    const destinationUrl = subCat
+                      ? `/categories/${cat?.slug || "bedroom"}?sub=${subCat.slug}`
+                      : cat
+                      ? `/categories/${cat.slug}`
+                      : "/categories";
 
                     return (
                       <div
-                        key={cat.id}
-                        className="p-3.5 rounded-2xl border border-[#18181B]/10 bg-[#FAF8F5]/70 hover:bg-[#FAF8F5] transition-all flex items-center justify-between gap-4 group"
+                        key={card.id || idx}
+                        className="p-3.5 sm:p-4 rounded-2xl border border-[#18181B]/10 bg-[#FAF8F5]/70 hover:bg-[#FAF8F5] transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 group"
                       >
-                        <div className="flex items-center gap-3.5 min-w-0">
-                          {/* Order Index & Layout Tag */}
+                        <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                          {/* Order Index */}
                           <div className="flex flex-col items-center justify-center w-8 h-8 rounded-xl bg-[#18181B]/5 text-[#18181B] font-mono text-xs font-bold shrink-0">
                             0{idx + 1}
                           </div>
 
                           {/* Live Thumbnail */}
                           <div className="relative w-14 h-14 rounded-xl overflow-hidden bg-white shrink-0 border border-[#18181B]/10 flex items-center justify-center">
-                            {cat.cover_image ? (
+                            {activeImg ? (
                               <Image
-                                src={cat.cover_image}
-                                alt={cat.name_en}
+                                src={activeImg}
+                                alt={subCat?.name_en || cat?.name_en || "Category"}
                                 fill
                                 sizes="56px"
                                 className="object-cover"
@@ -1060,31 +1121,73 @@ export function StorefrontVisualEditor({
                             )}
                           </div>
 
-                          {/* Live Category Info */}
-                          <div className="min-w-0">
+                          {/* Selects: Master Category & Sub-Category */}
+                          <div className="min-w-0 flex-1 space-y-1.5">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <h4 className="text-xs font-bold text-[#18181B] truncate">
-                                {cat.name_en}
-                              </h4>
                               <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#9A3412]/10 text-[#9A3412]">
                                 {positionLabel}
                               </span>
+                              <span className="text-[10px] font-mono text-[#71717A] truncate">
+                                Destination: {destinationUrl}
+                              </span>
                             </div>
-                            <p className="text-[11px] text-[#71717A] truncate mt-0.5">
-                              {cat.subtitle || "No subtitle set on Categories page."}
-                            </p>
-                            <span className="text-[10px] font-mono text-[#71717A]">
-                              /categories/{cat.slug}
-                            </span>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {/* Master Category Select */}
+                              <div>
+                                <label className="block text-[9px] uppercase tracking-wider font-bold text-[#71717A] mb-0.5">
+                                  Master Category
+                                </label>
+                                <select
+                                  value={card.category_id}
+                                  onChange={(e) =>
+                                    handleUpdateBentoCard(idx, {
+                                      category_id: e.target.value,
+                                      sub_category_id: undefined,
+                                    })
+                                  }
+                                  className="w-full px-2.5 py-1.5 rounded-lg border border-[#18181B]/15 bg-white text-xs font-semibold text-[#18181B] cursor-pointer"
+                                >
+                                  {parentCategories.map((p) => (
+                                    <option key={p.id} value={p.id}>
+                                      {p.name_en}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              {/* Optional Sub-Category Select */}
+                              <div>
+                                <label className="block text-[9px] uppercase tracking-wider font-bold text-[#71717A] mb-0.5">
+                                  Sub-Category Link (Optional)
+                                </label>
+                                <select
+                                  value={card.sub_category_id || ""}
+                                  onChange={(e) =>
+                                    handleUpdateBentoCard(idx, {
+                                      sub_category_id: e.target.value || undefined,
+                                    })
+                                  }
+                                  className="w-full px-2.5 py-1.5 rounded-lg border border-[#18181B]/15 bg-white text-xs font-medium text-[#18181B] cursor-pointer"
+                                >
+                                  <option value="">All (Main Category)</option>
+                                  {availableSubs.map((s) => (
+                                    <option key={s.id} value={s.id}>
+                                      {s.name_en}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
                           </div>
                         </div>
 
                         {/* Reorder Up/Down & Remove Actions */}
-                        <div className="flex items-center gap-1.5 shrink-0">
+                        <div className="flex items-center gap-1.5 shrink-0 self-end md:self-center">
                           <button
                             type="button"
                             disabled={idx === 0}
-                            onClick={() => handleMoveBentoCategory(idx, "up")}
+                            onClick={() => handleMoveBentoCard(idx, "up")}
                             className="p-1.5 rounded-lg border border-[#18181B]/10 hover:bg-white text-[#71717A] hover:text-[#18181B] disabled:opacity-20 cursor-pointer"
                             title="Move Up"
                           >
@@ -1093,8 +1196,8 @@ export function StorefrontVisualEditor({
 
                           <button
                             type="button"
-                            disabled={idx === selectedBentoCategoryIds.length - 1}
-                            onClick={() => handleMoveBentoCategory(idx, "down")}
+                            disabled={idx === bentoCards.length - 1}
+                            onClick={() => handleMoveBentoCard(idx, "down")}
                             className="p-1.5 rounded-lg border border-[#18181B]/10 hover:bg-white text-[#71717A] hover:text-[#18181B] disabled:opacity-20 cursor-pointer"
                             title="Move Down"
                           >
@@ -1103,9 +1206,7 @@ export function StorefrontVisualEditor({
 
                           <button
                             type="button"
-                            onClick={() => {
-                              if (cat.id) handleRemoveBentoCategory(cat.id);
-                            }}
+                            onClick={() => handleRemoveBentoCard(idx)}
                             className="p-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 cursor-pointer ml-1"
                             title="Remove from Landing Page"
                           >
@@ -1154,7 +1255,7 @@ export function StorefrontVisualEditor({
                       <button
                         type="button"
                         onClick={() => {
-                          if (cat.id) handleAddBentoCategory(cat.id);
+                          if (cat.id) handleAddBentoCard(cat.id);
                         }}
                         className="px-2.5 py-1.5 rounded-lg bg-[#FAF8F5] hover:bg-[#9A3412] text-[#18181B] hover:text-white border border-[#18181B]/10 text-xs font-semibold transition-all shrink-0 cursor-pointer flex items-center gap-1"
                       >

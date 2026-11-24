@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { ArrowLeft, ChevronRight, Sparkles } from "lucide-react";
 import { SubCategoryFilterStrip } from "./SubCategoryFilterStrip";
@@ -11,6 +11,7 @@ import type { MasterCategory, CategoryProduct } from "@/types/category";
 interface CategoryPlpClientProps {
   category: MasterCategory;
   products: CategoryProduct[];
+  initialSubCategory?: string;
 }
 
 /**
@@ -24,16 +25,44 @@ interface CategoryPlpClientProps {
 export function CategoryPlpClient({
   category,
   products,
+  initialSubCategory = "all",
 }: CategoryPlpClientProps) {
-  const [activeSubCategory, setActiveSubCategory] = useState<string>("all");
+  // Resolve initial sub-category by ID or slug/label keyword
+  const resolvedInitialSub = useMemo(() => {
+    if (!initialSubCategory || initialSubCategory === "all") return "all";
+    const cleanReq = initialSubCategory.trim().toLowerCase();
+    const matched = category.sub_categories.find(
+      (s) =>
+        s.id.toLowerCase() === cleanReq ||
+        (s.slug && s.slug.toLowerCase() === cleanReq) ||
+        s.label.toLowerCase() === cleanReq ||
+        s.id.toLowerCase().includes(cleanReq) ||
+        (s.slug && s.slug.toLowerCase().includes(cleanReq)) ||
+        s.label.toLowerCase().includes(cleanReq)
+    );
+    return matched ? matched.id : "all";
+  }, [category.sub_categories, initialSubCategory]);
+
+  const [activeSubCategory, setActiveSubCategory] = useState<string>(resolvedInitialSub);
+
+  // Sync state if initialSubCategory changes via client navigation
+  useEffect(() => {
+    setActiveSubCategory(resolvedInitialSub);
+  }, [resolvedInitialSub]);
+
   const theme = getCategoryTheme(category.slug);
 
   const filteredProducts = useMemo(() => {
     if (activeSubCategory === "all") {
       return products;
     }
-    return products.filter((p) => p.sub_category === activeSubCategory);
-  }, [products, activeSubCategory]);
+    const activeSubObj = category.sub_categories.find((s) => s.id === activeSubCategory);
+    return products.filter(
+      (p) =>
+        p.sub_category === activeSubCategory ||
+        (activeSubObj?.slug && p.sub_category === activeSubObj.slug)
+    );
+  }, [products, activeSubCategory, category.sub_categories]);
 
   return (
     <div

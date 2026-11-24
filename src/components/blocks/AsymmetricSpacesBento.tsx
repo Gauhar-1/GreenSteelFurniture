@@ -1,6 +1,6 @@
-import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { NetworkResilientImage } from "@/components/ui/NetworkResilientImage";
 import type { AsymmetricSpacesBentoBlockData, BentoSpaceCard } from "@/types/blocks";
 
 interface AsymmetricSpacesBentoProps {
@@ -65,18 +65,25 @@ export function AsymmetricSpacesBento({ data, className }: AsymmetricSpacesBento
           const spanClass = getGridSpanClasses(card.gridSpan);
           const hasImage = Boolean(card.imageUrl && card.imageUrl.trim() !== "");
 
+          // Resolve smart subcategory query if configured (avoiding duplicate parameters)
+          let targetHref = card.href || "/categories";
+          if (card.sub_category_slug && !targetHref.includes("sub=")) {
+            const separator = targetHref.includes("?") ? "&" : "?";
+            targetHref = `${targetHref}${separator}sub=${encodeURIComponent(card.sub_category_slug)}`;
+          }
+
           return (
             <Link
               key={card.id}
-              href={card.href || "/categories"}
+              href={targetHref}
               className={cn(
                 "group relative w-full overflow-hidden rounded-2xl bg-[#EDE9E1] border border-[#18181B]/10 hover:border-[#18181B]/30 hover:shadow-xl active:scale-[0.99] transition-all duration-300 block",
                 spanClass
               )}
             >
-              {/* Natural High-Res Photography with Smooth Scale on Hover */}
+              {/* Natural High-Res Photography with Smooth Scale on Hover and Network Resilience */}
               {hasImage ? (
-                <Image
+                <NetworkResilientImage
                   src={card.imageUrl}
                   alt={card.imageAlt || card.title}
                   fill
