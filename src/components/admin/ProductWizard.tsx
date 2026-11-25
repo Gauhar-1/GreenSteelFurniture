@@ -81,6 +81,9 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
   const [activeStep, setActiveStep] = useState<1 | 2 | 3>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState(false);
+  const draftIdRef = useRef<string>(
+    `draft-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
+  );
   const [aiBannerMessage, setAiBannerMessage] = useState<{
     type: "success" | "error" | "info";
     text: string;
@@ -374,49 +377,163 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
     });
   };
 
-  // Trigger AI analysis on a selected furniture photo
+  // Unified AI Auto-Fill + Storage Upload Flow:
+  // 1. Shows instant local blob preview so the admin immediately sees their photo (0ms lag).
+  // 2. Groq Vision AI analyzes the photo and returns the luxury product title, archetype, and taxonomy.
+  // 3. Generates the real product slug (e.g. "regal-mirror-steel-bed").
+  // 4. Uploads the photo to Supabase Storage directly under products/${realSlug}/...
+  // 5. Updates form data atomically with both AI taxonomy and fresh storage URL (with cache-buster).
   const handleAiAutoFill = async (file: File) => {
     setIsAnalyzingPhoto(true);
     setAiBannerMessage(null);
 
+    // 1. Show instant local preview in Slot 1 so user immediately sees their photo
+    const localPreviewUrl = URL.createObjectURL(file);
+    setFormData((prev) => {
+      const updatedFinishes = [...prev.finishes];
+      if (updatedFinishes[selectedFinishIndex]) {
+        updatedFinishes[selectedFinishIndex] = {
+          ...updatedFinishes[selectedFinishIndex],
+          media: {
+            ...updatedFinishes[selectedFinishIndex].media,
+            lifestyle: localPreviewUrl,
+          },
+        };
+      }
+      return { ...prev, finishes: updatedFinishes };
+    });
+
     try {
+      // 2. Groq Vision AI Analysis
       const base64DataUrl = await compressImageForAI(file);
       const result = await analyzeFurniturePhotoAction(base64DataUrl);
 
-      if (!result.success || !result.data) {
-        setAiBannerMessage({
-          type: "error",
-          text: result.error || "Could not analyze photo. Please enter details manually.",
-        });
-        return;
-      }
+      let targetSlug = formData.slug?.trim() || draftIdRef.current;
+      let aiData: AIProductAnalysisData | null = null;
 
-      const { data } = result;
-
-      // If owner has already typed a title, confirm before overwriting
-      if (formData.title_en.trim().length > 0 && formData.title_en !== data.title_en) {
-        const confirmOverwrite = window.confirm(
-          `AI suggested title: "${data.title_en}".\nDo you want to overwrite your existing title and tagline?`
-        );
-        if (!confirmOverwrite) {
-          applyAiTaxonomyAndHighlights(data, false);
-          setAiBannerMessage({
-            type: "info",
-            text: "Kept your existing title. Room taxonomy and specifications were updated.",
-          });
-          return;
+      if (result.success && result.data) {
+        aiData = result.data;
+        const generatedSlug = aiData.title_en
+          ? aiData.title_en
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, "-")
+              .replace(/(^-|-$)/g, "")
+          : "";
+        if (generatedSlug) {
+          targetSlug = generatedSlug;
         }
       }
 
-      applyAiTaxonomyAndHighlights(data, true);
-      clearFieldError("title_en", "slug", "tagline", "category_id", "sub_category_id");
+      // If owner has already typed a title, confirm before overwriting
+      let shouldOverwriteTitle = true;
+      if (aiData && formData.title_en.trim().length > 0 && formData.title_en !== aiData.title_en) {
+        const confirmOverwrite = window.confirm(
+          `AI suggested title: "${aiData.title_en}".\nDo you want to overwrite your existing title and tagline?`
+        );
+        if (!confirmOverwrite) {
+          shouldOverwriteTitle = false;
+          targetSlug = formData.slug?.trim() || targetSlug;
+        }
+      }
 
-      setAiBannerMessage({
-        type: "success",
-        text: "✨ Details auto-filled from photo! Review and add your sizes & pricing.",
+      // 3. Upload to Supabase Storage using targetSlug
+      const currentFinishObj = formData.finishes[selectedFinishIndex] || formData.finishes[0];
+      const uploadResult = await StorageService.uploadProductMedia(file, {
+        productSlug: targetSlug,
+        finishName: currentFinishObj?.finish_name || "Matte Steel",
+        slotName: "lifestyle",
       });
+
+      const finalUploadedUrl = uploadResult.publicUrl;
+      URL.revokeObjectURL(localPreviewUrl);
+
+      // 4. Atomic Form Update
+      setFormData((prev) => {
+        const updatedFinishes = [...prev.finishes];
+        if (updatedFinishes[selectedFinishIndex]) {
+          updatedFinishes[selectedFinishIndex] = {
+            ...updatedFinishes[selectedFinishIndex],
+            media: {
+              ...updatedFinishes[selectedFinishIndex].media,
+              lifestyle: finalUploadedUrl,
+            },
+          };
+        }
+
+        if (!aiData) {
+          return {
+            ...prev,
+            slug: prev.slug || targetSlug,
+            finishes: updatedFinishes,
+          };
+        }
+
+        // Match category and subcategory against verified safeCategories
+        let categoryId = prev.category_id;
+        let subCategoryId = prev.sub_category_id;
+        let blueprint = prev.blueprint_type;
+
+        if (aiData.category_id) {
+          const matchedParent = safeCategories.find((c) => c.id === aiData.category_id);
+          if (matchedParent?.id) {
+            categoryId = matchedParent.id;
+            blueprint = matchedParent.blueprint_type || blueprint;
+          }
+        }
+
+        if (aiData.sub_category_id) {
+          const matchedSub = safeCategories.find((c) => c.id === aiData.sub_category_id);
+          if (matchedSub?.id) {
+            subCategoryId = matchedSub.id;
+            blueprint = matchedSub.blueprint_type || blueprint;
+          }
+        }
+
+        if (aiData.blueprint_type) {
+          blueprint = aiData.blueprint_type;
+        }
+
+        const existingLower = new Set(prev.highlights.map((h) => h.toLowerCase()));
+        const incomingUnique = (aiData.highlights || []).filter(
+          (h) => !existingLower.has(h.toLowerCase())
+        );
+
+        return {
+          ...prev,
+          category_id: categoryId,
+          sub_category_id: subCategoryId,
+          blueprint_type: blueprint,
+          title_en: shouldOverwriteTitle ? aiData.title_en : prev.title_en,
+          slug: targetSlug,
+          tagline: shouldOverwriteTitle ? aiData.tagline : prev.tagline,
+          highlights: [...prev.highlights, ...incomingUnique],
+          finishes: updatedFinishes,
+        };
+      });
+
+      clearFieldError(
+        "title_en",
+        "slug",
+        "tagline",
+        "category_id",
+        "sub_category_id",
+        `finishes.${selectedFinishIndex}.media.lifestyle`
+      );
+
+      if (aiData) {
+        setAiBannerMessage({
+          type: "success",
+          text: "✨ Photo uploaded & details auto-filled from photo! Review your title and department in Step 2.",
+        });
+      } else {
+        setAiBannerMessage({
+          type: "info",
+          text: "Photo uploaded to storage. Please enter the title and department details manually.",
+        });
+      }
     } catch (err) {
-      console.error("AI Auto-Fill Error:", err);
+      console.error("AI Auto-Fill & Upload Error:", err);
+      URL.revokeObjectURL(localPreviewUrl);
       setAiBannerMessage({
         type: "error",
         text: err instanceof Error ? err.message : "Failed to analyze photo with AI.",
@@ -1660,9 +1777,19 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
                         currentUrl={currentFinish.media.lifestyle}
                         errorMessage={fieldErrors[`finishes.${selectedFinishIndex}.media.lifestyle`]}
                         onImageSelected={(url) => {
-                          const updated = [...formData.finishes];
-                          updated[selectedFinishIndex].media.lifestyle = url;
-                          setFormData({ ...formData, finishes: updated });
+                          setFormData((prev) => {
+                            const updated = [...prev.finishes];
+                            if (updated[selectedFinishIndex]) {
+                              updated[selectedFinishIndex] = {
+                                ...updated[selectedFinishIndex],
+                                media: {
+                                  ...updated[selectedFinishIndex].media,
+                                  lifestyle: url,
+                                },
+                              };
+                            }
+                            return { ...prev, finishes: updated };
+                          });
                           clearFieldError(
                             `finishes.${selectedFinishIndex}.media.lifestyle`,
                             `finishes.${selectedFinishIndex}.media.front`,
@@ -1670,14 +1797,12 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
                             `finishes.${selectedFinishIndex}.media.macro`
                           );
                         }}
-                        onImageUploadedWithFile={(_url, file) => {
-                          if (!formData.title_en || formData.title_en.trim() === "") {
-                            handleAiAutoFill(file);
-                          }
+                        onImageUploadedWithFile={async (_url, file) => {
+                          await handleAiAutoFill(file);
                         }}
                         onAiAutoFill={handleAiAutoFill}
                         isAnalyzingAi={isAnalyzingPhoto}
-                        productSlug={formData.slug || "new-product"}
+                        productSlug={formData.slug?.trim() || draftIdRef.current}
                         finishName={currentFinish.finish_name}
                         slotName="lifestyle"
                       />
@@ -1690,9 +1815,19 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
                         aspectRatio="1:1"
                         currentUrl={currentFinish.media.front}
                         onImageSelected={(url) => {
-                          const updated = [...formData.finishes];
-                          updated[selectedFinishIndex].media.front = url;
-                          setFormData({ ...formData, finishes: updated });
+                          setFormData((prev) => {
+                            const updated = [...prev.finishes];
+                            if (updated[selectedFinishIndex]) {
+                              updated[selectedFinishIndex] = {
+                                ...updated[selectedFinishIndex],
+                                media: {
+                                  ...updated[selectedFinishIndex].media,
+                                  front: url,
+                                },
+                              };
+                            }
+                            return { ...prev, finishes: updated };
+                          });
                           clearFieldError(
                             `finishes.${selectedFinishIndex}.media.lifestyle`,
                             `finishes.${selectedFinishIndex}.media.front`,
@@ -1700,7 +1835,7 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
                             `finishes.${selectedFinishIndex}.media.macro`
                           );
                         }}
-                        productSlug={formData.slug || "new-product"}
+                        productSlug={formData.slug?.trim() || draftIdRef.current}
                         finishName={currentFinish.finish_name}
                         slotName="front"
                       />
@@ -1713,9 +1848,19 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
                         aspectRatio="1:1"
                         currentUrl={currentFinish.media.functional}
                         onImageSelected={(url) => {
-                          const updated = [...formData.finishes];
-                          updated[selectedFinishIndex].media.functional = url;
-                          setFormData({ ...formData, finishes: updated });
+                          setFormData((prev) => {
+                            const updated = [...prev.finishes];
+                            if (updated[selectedFinishIndex]) {
+                              updated[selectedFinishIndex] = {
+                                ...updated[selectedFinishIndex],
+                                media: {
+                                  ...updated[selectedFinishIndex].media,
+                                  functional: url,
+                                },
+                              };
+                            }
+                            return { ...prev, finishes: updated };
+                          });
                           clearFieldError(
                             `finishes.${selectedFinishIndex}.media.lifestyle`,
                             `finishes.${selectedFinishIndex}.media.front`,
@@ -1723,7 +1868,7 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
                             `finishes.${selectedFinishIndex}.media.macro`
                           );
                         }}
-                        productSlug={formData.slug || "new-product"}
+                        productSlug={formData.slug?.trim() || draftIdRef.current}
                         finishName={currentFinish.finish_name}
                         slotName="functional"
                       />
@@ -1736,9 +1881,19 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
                         aspectRatio="1:1"
                         currentUrl={currentFinish.media.macro}
                         onImageSelected={(url) => {
-                          const updated = [...formData.finishes];
-                          updated[selectedFinishIndex].media.macro = url;
-                          setFormData({ ...formData, finishes: updated });
+                          setFormData((prev) => {
+                            const updated = [...prev.finishes];
+                            if (updated[selectedFinishIndex]) {
+                              updated[selectedFinishIndex] = {
+                                ...updated[selectedFinishIndex],
+                                media: {
+                                  ...updated[selectedFinishIndex].media,
+                                  macro: url,
+                                },
+                              };
+                            }
+                            return { ...prev, finishes: updated };
+                          });
                           clearFieldError(
                             `finishes.${selectedFinishIndex}.media.lifestyle`,
                             `finishes.${selectedFinishIndex}.media.front`,
@@ -1746,7 +1901,7 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
                             `finishes.${selectedFinishIndex}.media.macro`
                           );
                         }}
-                        productSlug={formData.slug || "new-product"}
+                        productSlug={formData.slug?.trim() || draftIdRef.current}
                         finishName={currentFinish.finish_name}
                         slotName="macro"
                       />
@@ -2202,6 +2357,7 @@ export function ProductWizard({ categories, initialData }: ProductWizardProps) {
                   }
                   alt={formData.title_en || "Product preview"}
                   fill
+                  unoptimized
                   sizes="(max-width: 1024px) 100vw, 40vw"
                   className="object-cover transition-transform duration-500 group-hover:scale-105"
                 />
@@ -2336,19 +2492,21 @@ function PhotoSlotBox({
     const oldUrl = currentUrl;
     setIsUploading(true);
     try {
-      const result = await StorageService.uploadProductMedia(file, {
-        productSlug,
-        finishName,
-        slotName,
-      });
-      onImageSelected(result.publicUrl);
       if (onImageUploadedWithFile) {
-        onImageUploadedWithFile(result.publicUrl, file);
-      }
+        // Unified AI-first analysis and storage upload
+        await onImageUploadedWithFile("", file);
+      } else {
+        const result = await StorageService.uploadProductMedia(file, {
+          productSlug,
+          finishName,
+          slotName,
+        });
+        onImageSelected(result.publicUrl);
 
-      // Prune previous image from storage if replaced
-      if (oldUrl && oldUrl !== result.publicUrl) {
-        await StorageService.deleteMediaByUrl(oldUrl);
+        // Prune previous image from storage if replaced
+        if (oldUrl && oldUrl !== result.publicUrl) {
+          await StorageService.deleteMediaByUrl(oldUrl);
+        }
       }
     } catch (err) {
       console.error("Upload error:", err);
@@ -2415,6 +2573,7 @@ function PhotoSlotBox({
               src={currentUrl}
               alt={title}
               fill
+              unoptimized
               sizes="(max-width: 640px) 100vw, 20vw"
               className="object-cover transition-transform group-hover:scale-105"
             />
@@ -2449,8 +2608,16 @@ function PhotoSlotBox({
           </>
         ) : (
           <div className="flex flex-col items-center justify-center text-[#71717A] p-2 text-center">
-            {isUploading ? (
-              <RefreshCw className="w-5 h-5 animate-spin text-[#9A3412]" />
+            {isUploading || isAnalyzingAi ? (
+              <div className="flex flex-col items-center justify-center gap-1.5">
+                <RefreshCw className="w-5 h-5 animate-spin text-[#9A3412]" />
+                <span className="text-[10px] font-semibold text-[#18181B]">
+                  {isAnalyzingAi ? "AI analyzing details..." : "Uploading photo..."}
+                </span>
+                <span className="text-[9px] text-[#71717A]">
+                  Auto-filling specifications & taxonomy
+                </span>
+              </div>
             ) : (
               <>
                 <Upload

@@ -131,9 +131,19 @@ export class StorageService {
   ): Promise<UploadResult> {
     const { blob, dataUrl, objectUrl, compressedSizeKb } = await this.compressImage(file);
 
-    const cleanProduct = options.productSlug.toLowerCase().replace(/[^a-z0-9-]/g, "-");
-    const cleanFinish = options.finishName.toLowerCase().replace(/[^a-z0-9-]/g, "-");
-    const cleanSlot = options.slotName.toLowerCase().replace(/[^a-z0-9-]/g, "-");
+    const rawProduct = options.productSlug?.trim() || "";
+    const cleanProduct = (rawProduct && rawProduct !== "new-product" ? rawProduct : `draft-${Date.now()}`)
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, "-")
+      .replace(/-+/g, "-");
+    const cleanFinish = (options.finishName || "matte-steel")
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, "-")
+      .replace(/-+/g, "-");
+    const cleanSlot = (options.slotName || "lifestyle")
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, "-")
+      .replace(/-+/g, "-");
     const path = `products/${cleanProduct}/${cleanFinish}/${cleanSlot}.webp`;
 
     // In unconfigured development mode, return temporary object URL (never base64)
@@ -172,7 +182,7 @@ export class StorageService {
       URL.revokeObjectURL(objectUrl);
 
       return {
-        publicUrl: urlData.publicUrl,
+        publicUrl: `${urlData.publicUrl}?t=${Date.now()}`,
         path,
         isFallback: false,
         sizeKb: compressedSizeKb,
@@ -233,7 +243,7 @@ export class StorageService {
       URL.revokeObjectURL(objectUrl);
 
       return {
-        publicUrl: urlData.publicUrl,
+        publicUrl: `${urlData.publicUrl}?t=${Date.now()}`,
         path,
         isFallback: false,
         sizeKb: compressedSizeKb,
@@ -295,7 +305,7 @@ export class StorageService {
       URL.revokeObjectURL(objectUrl);
 
       return {
-        publicUrl: urlData.publicUrl,
+        publicUrl: `${urlData.publicUrl}?t=${Date.now()}`,
         path,
         isFallback: false,
         sizeKb: compressedSizeKb,
